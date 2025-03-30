@@ -1,3 +1,345 @@
+      scales: {
+        x: {
+          ticks: {
+            maxRotation: 0,
+            color: darkThemeColors.text,
+            autoSkip: true,
+            maxTicksLimit: 12
+          },
+          grid: {
+            color: darkThemeColors.gridLines,
+            display: true
+          }
+        },
+        y: {
+          position: 'right' as const,
+          ticks: {
+            color: darkThemeColors.text
+          },
+          grid: {
+            color: darkThemeColors.gridLines,
+            display: true
+          }
+        }
+      }
+    };
+  };
+
+  // 볼륨 차트 옵션
+  const getVolumeChartOptions = () => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 0
+      },
+      interaction: {
+        mode: 'index' as const,
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          display: false
+        },
+        title: {
+          display: true,
+          text: '거래량',
+          color: darkThemeColors.text,
+          font: {
+            size: 14
+          },
+          padding: {
+            top: 10,
+            bottom: 10
+          }
+        },
+        tooltip: {
+          intersect: false,
+          backgroundColor: darkThemeColors.background,
+          titleColor: darkThemeColors.text,
+          bodyColor: darkThemeColors.text,
+          borderColor: darkThemeColors.gridLines,
+          borderWidth: 1,
+          mode: 'index'
+        },
+        zoom: {
+          pan: {
+            enabled: true,
+            mode: 'x'
+          },
+          zoom: {
+            wheel: {
+              enabled: true
+            },
+            pinch: {
+              enabled: true
+            },
+            mode: 'x'
+          }
+        }
+      },
+      scales: {
+        x: {
+          display: false, // x축 표시 안함 (메인 차트와 동기화)
+        },
+        y: {
+          position: 'right' as const,
+          ticks: {
+            color: darkThemeColors.text
+          },
+          grid: {
+            color: darkThemeColors.gridLines,
+            display: true
+          }
+        }
+      }
+    };
+  };
+
+  // MACD 차트 옵션
+  const getMACDChartOptions = () => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 0
+      },
+      interaction: {
+        mode: 'index' as const,
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          position: 'top' as const,
+          labels: {
+            color: darkThemeColors.text,
+            boxWidth: 12,
+            padding: 5
+          }
+        },
+        title: {
+          display: true,
+          text: 'MACD (12, 26, 9)',
+          color: darkThemeColors.text,
+          font: {
+            size: 14
+          },
+          padding: {
+            top: 10,
+            bottom: 10
+          }
+        },
+        tooltip: {
+          intersect: false,
+          backgroundColor: darkThemeColors.background,
+          titleColor: darkThemeColors.text,
+          bodyColor: darkThemeColors.text,
+          borderColor: darkThemeColors.gridLines,
+          borderWidth: 1,
+          mode: 'index'
+        },
+        zoom: {
+          pan: {
+            enabled: true,
+            mode: 'x'
+          },
+          zoom: {
+            wheel: {
+              enabled: true
+            },
+            pinch: {
+              enabled: true
+            },
+            mode: 'x'
+          }
+        }
+      },
+      scales: {
+        x: {
+          display: false, // x축 표시 안함 (메인 차트와 동기화)
+        },
+        y: {
+          position: 'right' as const,
+          ticks: {
+            color: darkThemeColors.text
+          },
+          grid: {
+            color: darkThemeColors.gridLines,
+            display: true
+          }
+        }
+      }
+    };
+  };
+
+  // RSI 차트 옵션
+  const getRSIChartOptions = () => {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: {
+        duration: 0
+      },
+      interaction: {
+        mode: 'index' as const,
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          display: false
+        },
+        title: {
+          display: true,
+          text: 'RSI (14)',
+          color: darkThemeColors.text,
+          font: {
+            size: 14
+          },
+          padding: {
+            top: 10,
+            bottom: 10
+          }
+        },
+        tooltip: {
+          intersect: false,
+          backgroundColor: darkThemeColors.background,
+          titleColor: darkThemeColors.text,
+          bodyColor: darkThemeColors.text,
+          borderColor: darkThemeColors.gridLines,
+          borderWidth: 1,
+          mode: 'index'
+        },
+        zoom: {
+          pan: {
+            enabled: true,
+            mode: 'x'
+          },
+          zoom: {
+            wheel: {
+              enabled: true
+            },
+            pinch: {
+              enabled: true
+            },
+            mode: 'x'
+          }
+        }
+      },
+      scales: {
+        x: {
+          display: false, // x축 표시 안함 (메인 차트와 동기화)
+        },
+        y: {
+          position: 'right' as const,
+          ticks: {
+            color: darkThemeColors.text,
+            min: 0,
+            max: 100,
+            stepSize: 20 // 0, 20, 40, 60, 80, 100 표시
+          },
+          grid: {
+            color: darkThemeColors.gridLines,
+            display: true
+          }
+        }
+      }
+    };
+  };
+
+  // 차트 간 동기화 핸들러 - 이벤트 등록
+  useEffect(() => {
+    // 차트 인스턴스가 모두 생성된 후에만 실행
+    if (!priceChartRef.current) return;
+    
+    // 차트 이벤트 핸들러
+    const handleZoom = (event: any) => {
+      if (!event || !event.chart) return;
+      
+      const sourceChart = event.chart;
+      const sourceMin = sourceChart.scales.x.min;
+      const sourceMax = sourceChart.scales.x.max;
+      
+      // 모든 차트 인스턴스 배열 (null이 아닌 것만 필터링)
+      const chartInstances = [
+        volumeChartRef.current,
+        macdChartRef.current,
+        rsiChartRef.current
+      ].filter(Boolean);
+      
+      // 각 차트 동기화
+      chartInstances.forEach(chart => {
+        if (chart) {
+          chart.zoomScale('x', {
+            min: sourceMin,
+            max: sourceMax
+          });
+          chart.update('none'); // 성능을 위해 애니메이션 없이 업데이트
+        }
+      });
+    };
+    
+    // 메인 차트에 이벤트 리스너 추가
+    const chartElement = priceChartRef.current;
+    
+    if (chartElement) {
+      // 줌 이벤트 활성화
+      chartElement.options.plugins.zoom.zoom.onZoom = handleZoom;
+      chartElement.options.plugins.zoom.pan.onPan = handleZoom;
+      
+      // 이벤트 리스너 등록
+      chartElement.canvas.addEventListener('wheel', () => {
+        setTimeout(() => handleZoom({ chart: chartElement }), 0);
+      });
+      
+      chartElement.canvas.addEventListener('mousedown', () => {
+        chartElement.canvas.addEventListener('mousemove', handleDrag);
+      });
+      
+      chartElement.canvas.addEventListener('mouseup', () => {
+        chartElement.canvas.removeEventListener('mousemove', handleDrag);
+        setTimeout(() => handleZoom({ chart: chartElement }), 0);
+      });
+      
+      chartElement.canvas.addEventListener('mouseout', () => {
+        chartElement.canvas.removeEventListener('mousemove', handleDrag);
+      });
+    }
+    
+    const handleDrag = () => {
+      // 드래그 중에는 빈 함수
+    };
+    
+    return () => {
+      // 클린업 함수
+      if (chartElement && chartElement.canvas) {
+        chartElement.canvas.removeEventListener('wheel', () => {});
+        chartElement.canvas.removeEventListener('mousedown', () => {});
+        chartElement.canvas.removeEventListener('mouseup', () => {});
+        chartElement.canvas.removeEventListener('mouseout', () => {});
+        chartElement.canvas.removeEventListener('mousemove', handleDrag);
+      }
+    };
+  }, [priceChartRef.current, indicators]);
+
+  // 차트 렌더링
+  const renderCharts = () => {
+    if (loading) {
+      return (
+        <div className="flex justify-center items-center h-full">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full space-y-4">
+          <p className="text-red-500">{error}</p>
+          <Button onClick={fetchCandleData}>다시 시도</Button>
+        </div>
+      );
+    }
+
     if (!data.length) {
       return (
         <div className="flex justify-center items-center h-full">
@@ -20,7 +362,7 @@
           <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.6)}px` }}>
             <Line 
               data={priceChartData} 
-              options={priceChartOptions} 
+              options={priceChartOptions}
               ref={(ref) => {
                 if (ref) {
                   priceChartRef.current = ref.chartInstance;
