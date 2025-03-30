@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "cloudflare": {
+      "command": "npx",
+      "args": [
+        "@cloudflare/mcp-server-cloudflare",
+        "run",
+        "WeekLife.info@gmail.com"
+      ],
+      "env": {
+        "CLOUDFLARE_API_TOKEN": "xl5KDsE7hXHnYjkRMq9zfv6Y4oubY96vDx3T4zJx"
+      }
+    }
+  }
+}
