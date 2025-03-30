@@ -30,10 +30,12 @@ export async function GET(request: NextRequest) {
     if (Array.isArray(tickerData)) {
       tickerData.forEach(data => {
         // 마켓 이름에서 심볼 추출 (KRW-BTC에서 BTC)
-        const symbol = data.market.split('-')[1];
-        formattedData[symbol] = data;
+        if (data && data.market) {
+          const symbol = data.market.split('-')[1];
+          formattedData[symbol] = data;
+        }
       });
-    } else if (typeof tickerData === 'object' && tickerData !== null) {
+    } else if (tickerData && typeof tickerData === 'object' && 'market' in tickerData) {
       const symbol = tickerData.market.split('-')[1];
       formattedData[symbol] = tickerData;
     }
