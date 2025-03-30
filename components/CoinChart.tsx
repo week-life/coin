@@ -994,49 +994,49 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           </div>
           
           {/* 거래량 차트 영역 */}
-          {indicators.includes('volume') && (
-            <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
-              <Bar 
-                data={getVolumeChartData()} 
-                options={getVolumeChartOptions()}
-                ref={(ref) => {
-                  if (ref) {
-                    volumeChartRef.current = ref.chartInstance;
-                  }
-                }}
-              />
-            </div>
-          )}
-          
-          {/* MACD 차트 영역 */}
-          {indicators.includes('macd') && (
-            <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
-              <Line 
-                data={getMACDChartData()} 
-                options={getMACDChartOptions()}
-                ref={(ref) => {
-                  if (ref) {
-                    macdChartRef.current = ref.chartInstance;
-                  }
-                }}
-              />
-            </div>
-          )}
-          
-          {/* RSI 차트 영역 */}
-          {indicators.includes('rsi') && (
-            <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
-              <Line 
-                data={getRSIChartData()} 
-                options={getRSIChartOptions()}
-                ref={(ref) => {
-                  if (ref) {
-                    rsiChartRef.current = ref.chartInstance;
-                  }
-                }}
-              />
-            </div>
-          )}
+{indicators.includes('volume') && (
+  <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
+    <Bar 
+      data={getVolumeChartData()} 
+      options={getVolumeChartOptions()}
+      ref={(ref) => {
+        if (ref) {
+          volumeChartRef.current = ref;
+        }
+      }}
+    />
+  </div>
+)}
+
+{/* MACD 차트 영역 */}
+{indicators.includes('macd') && (
+  <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
+    <Line 
+      data={getMACDChartData()} 
+      options={getMACDChartOptions()}
+      ref={(ref) => {
+        if (ref) {
+          macdChartRef.current = ref;
+        }
+      }}
+    />
+  </div>
+)}
+
+{/* RSI 차트 영역 */}
+{indicators.includes('rsi') && (
+  <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
+    <Line 
+      data={getRSIChartData()} 
+      options={getRSIChartOptions()}
+      ref={(ref) => {
+        if (ref) {
+          rsiChartRef.current = ref;
+        }
+      }}
+    />
+  </div>
+)}
         </div>
       );
     } catch (err) {
