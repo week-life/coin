@@ -13,8 +13,9 @@ import {
   Legend,
   Filler
 } from 'chart.js';
+import { CandlestickController, CandlestickElement } from 'chartjs-chart-financial';
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { Line, Bar } from 'react-chartjs-2';
+import { Line, Bar, Chart } from 'react-chartjs-2';
 import { Button } from '@/components/ui/button';
 import { Maximize2, Minimize2, ExternalLink, ZoomIn, ZoomOut, MoveHorizontal, RefreshCw } from 'lucide-react';
 import { formatTimestamp, calculateMA, calculateRSI, calculateBollingerBands, calculateMACD } from '@/lib/utils';
@@ -30,7 +31,9 @@ ChartJS.register(
   Tooltip,
   Legend,
   Filler,
-  zoomPlugin
+  zoomPlugin,
+  CandlestickController,
+  CandlestickElement
 );
 
 interface CandleData {
@@ -48,6 +51,14 @@ interface CandleData {
 interface CoinChartProps {
   symbol: string;
   initialData?: CandleData[];
+}
+
+interface CandlestickData {
+  x: number;
+  o: number;
+  h: number;
+  l: number;
+  c: number;
 }
 
 type ChartType = 'tradingview';
@@ -205,6 +216,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       rsiChartRef.current.resetZoom();
     }
   };
+
   // 캔들 데이터 조회
   const fetchCandleData = async () => {
     try {
@@ -275,8 +287,8 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     };
   };
 
-  // 가격 차트 데이터 준비
-  const getPriceChartData = () => {
+  // 캔들스틱 데이터 준비
+  const getCandlestickData = () => {
     if (!data || data.length === 0) {
       return {
         labels: [],
@@ -293,19 +305,29 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     // 가격 데이터 준비
     const prices = sortedData.map(item => item.trade_price);
     
+    // 캔들스틱 데이터 준비
+    const candlestickData = sortedData.map(item => ({
+      x: item.timestamp,
+      o: item.opening_price,
+      h: item.high_price,
+      l: item.low_price,
+      c: item.trade_price
+    }));
+
     // 이동평균선 계산
     const { ma7, ma14, ma30, ma60, ma90, ma120 } = calculateMAs(prices);
     
     // 데이터셋 준비
-    const datasets: LineDataset[] = [
+    const datasets: any[] = [
       {
-        label: '가격',
-        data: prices,
-        borderColor: '#fff',
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        tension: 0.1,
-        borderWidth: 2,
-        pointRadius: 0,
+        label: '캔들',
+        data: candlestickData,
+        color: {
+          up: darkThemeColors.priceUp,
+          down: darkThemeColors.priceDown,
+          unchanged: '#888888',
+        },
+        borderWidth: 1,
         yAxisID: 'y'
       }
     ];
@@ -314,8 +336,12 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     if (indicators.includes('ma')) {
       datasets.push(
         {
+          type: 'line',
           label: 'MA7',
-          data: ma7,
+          data: sortedData.map((item, index) => ({
+            x: item.timestamp,
+            y: ma7[index] || null
+          })),
           borderColor: darkThemeColors.ma7,
           backgroundColor: 'transparent',
           tension: 0.1,
@@ -324,8 +350,12 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           yAxisID: 'y'
         },
         {
+          type: 'line',
           label: 'MA14',
-          data: ma14,
+          data: sortedData.map((item, index) => ({
+            x: item.timestamp,
+            y: ma14[index] || null
+          })),
           borderColor: darkThemeColors.ma14,
           backgroundColor: 'transparent',
           tension: 0.1,
@@ -334,8 +364,12 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           yAxisID: 'y'
         },
         {
+          type: 'line',
           label: 'MA30',
-          data: ma30,
+          data: sortedData.map((item, index) => ({
+            x: item.timestamp,
+            y: ma30[index] || null
+          })),
           borderColor: darkThemeColors.ma30,
           backgroundColor: 'transparent',
           tension: 0.1,
@@ -344,8 +378,12 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           yAxisID: 'y'
         },
         {
+          type: 'line',
           label: 'MA60',
-          data: ma60,
+          data: sortedData.map((item, index) => ({
+            x: item.timestamp,
+            y: ma60[index] || null
+          })),
           borderColor: darkThemeColors.ma60,
           backgroundColor: 'transparent',
           tension: 0.1,
@@ -354,8 +392,12 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           yAxisID: 'y'
         },
         {
+          type: 'line',
           label: 'MA90',
-          data: ma90,
+          data: sortedData.map((item, index) => ({
+            x: item.timestamp,
+            y: ma90[index] || null
+          })),
           borderColor: darkThemeColors.ma90,
           backgroundColor: 'transparent',
           tension: 0.1,
@@ -364,8 +406,12 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           yAxisID: 'y'
         },
         {
+          type: 'line',
           label: 'MA120',
-          data: ma120,
+          data: sortedData.map((item, index) => ({
+            x: item.timestamp,
+            y: ma120[index] || null
+          })),
           borderColor: darkThemeColors.ma120,
           backgroundColor: 'transparent',
           tension: 0.1,
@@ -381,7 +427,6 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       datasets
     };
   };
-
   // 볼륨 차트 데이터 준비
   const getVolumeChartData = () => {
     if (!data || data.length === 0) {
@@ -423,6 +468,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       datasets
     };
   };
+
   // MACD 차트 데이터 준비
   const getMACDChartData = () => {
     if (!data || data.length === 0) {
@@ -562,8 +608,8 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     };
   };
 
-  // 가격 차트 옵션
-  const getPriceChartOptions = () => {
+  // 캔들스틱 차트 옵션
+  const getCandlestickChartOptions = () => {
     return {
       responsive: true,
       maintainAspectRatio: false,
@@ -600,7 +646,21 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           bodyColor: darkThemeColors.text,
           borderColor: darkThemeColors.gridLines,
           borderWidth: 1,
-          mode: 'index' as const
+          mode: 'index' as const,
+          callbacks: {
+            label: (context: any) => {
+              const item = context.raw;
+              if (item && item.o !== undefined) {
+                return [
+                  `시가: ${item.o.toLocaleString()}`,
+                  `고가: ${item.h.toLocaleString()}`,
+                  `저가: ${item.l.toLocaleString()}`,
+                  `종가: ${item.c.toLocaleString()}`
+                ];
+              }
+              return context.dataset.label + ': ' + context.parsed.y;
+            }
+          }
         },
         zoom: {
           pan: {
@@ -620,6 +680,13 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       },
       scales: {
         x: {
+          type: 'time',
+          time: {
+            unit: 'day',
+            displayFormats: {
+              day: 'MM/dd'
+            }
+          },
           ticks: {
             maxRotation: 0,
             color: darkThemeColors.text,
@@ -629,7 +696,9 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           grid: {
             color: darkThemeColors.gridLines,
             display: true
-          }
+          },
+          // 스크롤바 추가
+          display: true
         },
         y: {
           position: 'right' as const,
@@ -641,9 +710,19 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
             display: true
           }
         }
+      },
+      elements: {
+        candlestick: {
+          color: {
+            up: darkThemeColors.priceUp,
+            down: darkThemeColors.priceDown,
+            unchanged: '#888888',
+          }
+        }
       }
     };
   };
+
   // 볼륨 차트 옵션
   const getVolumeChartOptions = () => {
     return {
@@ -865,7 +944,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     };
   };
 
-// 차트 간 동기화 핸들러 - 이벤트 등록
+  // 차트 간 동기화 핸들러 - 이벤트 등록
   useEffect(() => {
     // 차트 인스턴스가 모두 생성된 후에만 실행
     if (!priceChartRef.current) return;
@@ -900,7 +979,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     // 메인 차트에 이벤트 리스너 추가
     const chartElement = priceChartRef.current;
     
-    // 드래그 핸들러 정의 - 클린업에서도 접근할 수 있도록 여기에 정의
+    // 드래그 핸들러 정의
     const handleDrag = () => {
       // 드래그 중에는 빈 함수
     };
@@ -972,17 +1051,18 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       console.log('차트 렌더링 시작...');
       
       // 각 차트 데이터 및 옵션 얻기
-      const priceChartData = getPriceChartData();
-      const priceChartOptions = getPriceChartOptions();
+      const candlestickData = getCandlestickData();
+      const candlestickOptions = getCandlestickChartOptions();
       
       // 차트 영역 렌더링
       return (
         <div className="flex flex-col w-full space-y-2">
-          {/* 메인 가격 차트 영역 - 더 큰 높이 할당 */}
+          {/* 메인 캔들스틱 차트 영역 - 더 큰 높이 할당 */}
           <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.6)}px` }}>
-            <Line 
-              data={priceChartData} 
-              options={priceChartOptions}
+            <Chart 
+              type="candlestick"
+              data={candlestickData} 
+              options={candlestickOptions}
               ref={(ref) => {
                 if (ref) {
                   priceChartRef.current = ref;
@@ -1020,6 +1100,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
               />
             </div>
           )}
+
           {/* RSI 차트 영역 */}
           {indicators.includes('rsi') && (
             <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
@@ -1057,9 +1138,8 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       }
     });
   };
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" style={{ backgroundColor: darkThemeColors.background, color: darkThemeColors.text, padding: '20px', borderRadius: '8px' }}>
       <div className="flex flex-wrap justify-between items-center gap-2">
         <div className="flex flex-wrap gap-1">
           <Button
@@ -1158,14 +1238,14 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         </div>
       </div>
       
-      <div className="p-2 bg-[#1e222d] rounded-md mb-2 text-white text-sm flex items-center">
+      <div className="p-2 bg-[#1e222d] rounded-md mb-2 text-white text-sm flex items-center border border-[#363c4e]">
         <MoveHorizontal className="h-4 w-4 mr-2" />
-        마우스로 드래그하여 차트를 좌우로 이동하거나 휠을 사용하여 확대/축소할 수 있습니다.
+        스크롤 바를 사용하여 날짜를 확인하거나, 마우스 휠을 사용하여 확대/축소할 수 있습니다.
       </div>
       
       <div 
         ref={chartContainerRef}
-        className="w-full bg-[#1e222d] p-4 rounded-lg transition-all duration-300 ease-in-out"
+        className="w-full bg-[#1e222d] p-4 rounded-lg transition-all duration-300 ease-in-out border border-[#363c4e] overflow-x-auto"
         style={{ height: `${chartHeight}px` }}
       >
         {renderCharts()}
@@ -1173,4 +1253,3 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     </div>
   );
 }
-  
