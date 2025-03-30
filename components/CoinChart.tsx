@@ -487,7 +487,8 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           }
         },
         tooltip: {
-          mode: 'index',
+          // 이 부분에서 타입 오류가 발생했습니다. 'mode' 속성을 수정합니다.
+          // mode: 'index',를 제거하고 아래 옵션만 유지합니다.
           intersect: false,
           backgroundColor: darkThemeColors.background,
           titleColor: darkThemeColors.text,
