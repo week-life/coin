@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getMinuteCandles, getDayCandles } from '@/lib/bithumb-api';
 import { getCoinBySymbol, savePriceHistory } from '@/lib/cloudflare-api';
 
+// 캔들 데이터의 타입 정의
+interface CandleData {
+  timestamp: number;
+  opening_price: number;
+  high_price: number;
+  low_price: number;
+  closing_price?: number;
+  trade_price?: number;
+  volume?: number;
+  candle_acc_trade_volume?: number;
+  candle_acc_trade_price?: number;
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { symbol: string; unit: string; value: string } }
@@ -13,7 +26,7 @@ export async function GET(
     
     console.log(`[캔들 API] 요청 파라미터: symbol=${symbol}, unit=${unit}, value=${value}, count=${count}`);
     
-    let candleData;
+    let candleData: CandleData[] = [];
     let candleType: 'minute' | 'day' | 'week' | 'month';
     
     // 단위에 따라 적절한 API 호출
@@ -29,7 +42,7 @@ export async function GET(
           
           if (thirtyMinCandles && thirtyMinCandles.length > 0) {
             // 4시간 간격으로 데이터 그룹화 (8개의 30분 캔들로 4시간 구성)
-            const groupedCandles = [];
+            const groupedCandles: CandleData[] = [];
             for (let i = 0; i < thirtyMinCandles.length; i += 8) {
               const fourHourGroup = thirtyMinCandles.slice(i, i + 8);
               
@@ -39,12 +52,14 @@ export async function GET(
                 const lastCandle = fourHourGroup[fourHourGroup.length - 1];
                 
                 // 고가와 저가는 4시간 내 모든 봉의 최대/최소값
-                const highPrice = Math.max(...fourHourGroup.map(c => c.high_price));
-                const lowPrice = Math.min(...fourHourGroup.map(c => c.low_price));
+                const highPrice = Math.max(...fourHourGroup.map((c: CandleData) => c.high_price));
+                const lowPrice = Math.min(...fourHourGroup.map((c: CandleData) => c.low_price));
                 
                 // 거래량은 4시간 내 모든 봉의 합계
-                const volume = fourHourGroup.reduce((sum, c) => sum + (c.volume || c.candle_acc_trade_volume || 0), 0);
-                const tradePriceSum = fourHourGroup.reduce((sum, c) => sum + (c.candle_acc_trade_price || 0), 0);
+                const volume = fourHourGroup.reduce((sum: number, c: CandleData) => 
+                  sum + (c.volume || c.candle_acc_trade_volume || 0), 0);
+                const tradePriceSum = fourHourGroup.reduce((sum: number, c: CandleData) => 
+                  sum + (c.candle_acc_trade_price || 0), 0);
                 
                 groupedCandles.push({
                   timestamp: firstCandle.timestamp,
@@ -86,7 +101,10 @@ export async function GET(
           }
           
           console.log(`[캔들 API] 분 단위 조정: ${minuteValue}분 → ${allowedValue}분`);
-          candleData = await getMinuteCandles(symbol, allowedValue, count);
+          const data = await getMinuteCandles(symbol, allowedValue, count);
+          if (data && Array.isArray(data)) {
+            candleData = data;
+          }
         }
         
         candleType = 'minute';
@@ -95,7 +113,10 @@ export async function GET(
       case 'weeks':  // 주 단위는 현재 일 단위로 대체
       case 'months': // 월 단위는 현재 일 단위로 대체
         console.log(`[캔들 API] 일/주/월 단위 캔들 데이터 요청 중... (${unit})`);
-        candleData = await getDayCandles(symbol, count);
+        const dayData = await getDayCandles(symbol, count);
+        if (dayData && Array.isArray(dayData)) {
+          candleData = dayData;
+        }
         candleType = unit === 'days' ? 'day' : (unit === 'weeks' ? 'week' : 'month');
         break;
       default:
@@ -116,7 +137,7 @@ export async function GET(
     
     // 차트 컴포넌트에서 사용하는 필드와 일치하도록 데이터 변환
     if (candleData && Array.isArray(candleData)) {
-      candleData = candleData.map(candle => ({
+      candleData = candleData.map((candle: CandleData) => ({
         timestamp: candle.timestamp,
         opening_price: candle.opening_price,
         high_price: candle.high_price,
@@ -134,13 +155,13 @@ export async function GET(
       if (coin && candleData && Array.isArray(candleData)) {
         // 백그라운드에서 데이터 저장 (응답 지연 방지)
         Promise.all(
-          candleData.map(candle => savePriceHistory({
+          candleData.map((candle: CandleData) => savePriceHistory({
             coin_id: coin.id,
             timestamp: candle.timestamp,
             opening_price: candle.opening_price,
             high_price: candle.high_price,
             low_price: candle.low_price,
-            trade_price: candle.trade_price, // 종가 필드명 대응
+            trade_price: candle.trade_price || 0, // 종가 필드명 대응
             candle_acc_trade_volume: candle.candle_acc_trade_volume || 0,
             candle_acc_trade_price: candle.candle_acc_trade_price || 0,
             candle_type: candleType
