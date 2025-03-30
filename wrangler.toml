@@ -3,5 +3,5 @@ compatibility_date = "2024-03-30"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "coin_trading_data"
-database_id = ""
+database_name = "coin"
+database_id = "4c32ba78-84f7-49bc-828b-23705e3fd163"
