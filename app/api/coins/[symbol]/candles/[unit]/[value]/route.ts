@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getMinuteCandles, getDayCandles, getWeekCandles, getMonthCandles } from '@/lib/bithumb-api';
+import { getMinuteCandles, getDayCandles } from '@/lib/bithumb-api';
 import { getCoinBySymbol, savePriceHistory } from '@/lib/cloudflare-api';
 
 export async function GET(
@@ -10,7 +10,6 @@ export async function GET(
     const { symbol, unit, value } = params;
     const searchParams = request.nextUrl.searchParams;
     const count = searchParams.get('count') ? parseInt(searchParams.get('count') as string) : 100;
-    const to = searchParams.get('to') || undefined;
     
     let candleData;
     let candleType: 'minute' | 'day' | 'week' | 'month';
@@ -18,37 +17,14 @@ export async function GET(
     // 단위에 따라 적절한 API 호출
     switch (unit) {
       case 'minutes':
-        candleData = await getMinuteCandles({
-          market: symbol,
-          unit: parseInt(value) as any,
-          to,
-          count
-        });
+        candleData = await getMinuteCandles(symbol, parseInt(value) as any, count);
         candleType = 'minute';
         break;
       case 'days':
-        candleData = await getDayCandles({
-          market: symbol,
-          to,
-          count
-        });
-        candleType = 'day';
-        break;
-      case 'weeks':
-        candleData = await getWeekCandles({
-          market: symbol,
-          to,
-          count
-        });
-        candleType = 'week';
-        break;
-      case 'months':
-        candleData = await getMonthCandles({
-          market: symbol,
-          to,
-          count
-        });
-        candleType = 'month';
+      case 'weeks':  // 주 단위는 현재 일 단위로 대체
+      case 'months': // 월 단위는 현재 일 단위로 대체
+        candleData = await getDayCandles(symbol, count);
+        candleType = unit === 'days' ? 'day' : (unit === 'weeks' ? 'week' : 'month');
         break;
       default:
         return NextResponse.json(
@@ -70,9 +46,9 @@ export async function GET(
             opening_price: candle.opening_price,
             high_price: candle.high_price,
             low_price: candle.low_price,
-            trade_price: candle.trade_price,
-            candle_acc_trade_volume: candle.candle_acc_trade_volume,
-            candle_acc_trade_price: candle.candle_acc_trade_price,
+            trade_price: candle.closing_price || candle.trade_price, // 종가 필드명 대응
+            candle_acc_trade_volume: candle.volume || candle.candle_acc_trade_volume || 0,
+            candle_acc_trade_price: candle.candle_acc_trade_price || 0,
             candle_type: candleType
           }))
         ).catch(err => console.error('캔들 데이터 저장 오류:', err));
