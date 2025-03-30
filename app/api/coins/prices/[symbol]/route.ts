@@ -21,12 +21,19 @@ export async function GET(request: NextRequest, {
     
     // 현재가 조회
     const tickerData = await getTicker(market);
-    let priceData;
+    let priceData = null;
     
-    if (Array.isArray(tickerData) && tickerData.length > 0) {
+    if (Array.isArray(tickerData) && tickerData.length > 0 && tickerData[0] && 'market' in tickerData[0]) {
       priceData = tickerData[0];
-    } else {
+    } else if (tickerData && typeof tickerData === 'object' && 'market' in tickerData) {
       priceData = tickerData;
+    }
+    
+    if (!priceData) {
+      return NextResponse.json(
+        { error: `${symbol} 코인에 대한 가격 정보를 찾을 수 없습니다.` },
+        { status: 404 }
+      );
     }
     
     // 캠들 데이터 조회 (최근 14일)
@@ -34,7 +41,7 @@ export async function GET(request: NextRequest, {
     
     return NextResponse.json({
       current: priceData,
-      candles: candleData
+      candles: candleData || []
     }, { status: 200 });
   } catch (error: any) {
     console.error('개별 코인 가격 정보 조회 오류:', error);
