@@ -3,19 +3,17 @@ import { getAllMarkets } from '@/lib/bithumb-api';
 
 export async function GET() {
   try {
-    const markets = await getAllMarkets(true); // 상세 정보 포함
+    const markets = await getAllMarkets(); // 수정: 인자 제거
     
-    // KRW 마켓만 필터링
-    const krwMarkets = Object.entries(markets)
-      .filter(([market]) => market.startsWith('KRW-'))
-      .map(([market, data]: [string, any]) => ({
-        market,
-        korean_name: data.korean_name,
-        english_name: data.english_name,
-        market_warning: data.market_warning
-      }));
+    // 마켓 정보 포맷팅
+    const formattedMarkets = markets.map(market => ({
+      market: market.market,
+      symbol: market.symbol,
+      korean_name: market.korean_name,
+      english_name: market.english_name
+    }));
     
-    return NextResponse.json(krwMarkets, { status: 200 });
+    return NextResponse.json(formattedMarkets, { status: 200 });
   } catch (error) {
     console.error('마켓 정보 조회 오류:', error);
     return NextResponse.json(
