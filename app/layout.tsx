@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
-import { GeistSans } from 'geist/font/sans';
+import { Inter } from "next/font/google";
 import "./globals.css";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "코인 시세 트래커",
@@ -14,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body className={GeistSans.className}>
+      <body className={inter.className}>
         <div className="min-h-screen bg-gray-50">
           <header className="bg-blue-600 text-white shadow-md">
             <div className="container mx-auto px-4 py-4 flex justify-between items-center">
