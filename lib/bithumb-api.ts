@@ -15,9 +15,12 @@ interface BithumbTicker {
   fluctate_24H: number;
   fluctate_rate_24H: number;
   date?: string;
-  // 추가 필드 (Coinlist에서 사용)
-  trade_price?: number;
-  signed_change_rate?: number;
+  
+  // UI 호환성을 위한 필드 (필드명 매핑용)
+  trade_price?: number;       // closing_price와 동일
+  signed_change_rate?: number; // fluctate_rate_24H/100과 동일
+  high_price?: number;        // max_price와 동일
+  low_price?: number;         // min_price와 동일
 }
 
 interface BithumbResponse<T> {
@@ -166,9 +169,12 @@ export async function getTicker(symbols: string) {
           acc_trade_value_24H: parseFloat(tickerData.acc_trade_value_24H) || 0,
           fluctate_24H: parseFloat(tickerData.fluctate_24H) || 0,
           fluctate_rate_24H: parseFloat(tickerData.fluctate_rate_24H) || 0,
+          
           // 프론트엔드 호환성을 위한 변환 필드 추가
           trade_price: parseFloat(tickerData.closing_price) || 0,
-          signed_change_rate: parseFloat(tickerData.fluctate_rate_24H) / 100 || 0
+          signed_change_rate: parseFloat(tickerData.fluctate_rate_24H) / 100 || 0,
+          high_price: parseFloat(tickerData.max_price) || 0,
+          low_price: parseFloat(tickerData.min_price) || 0
         };
         console.log(`${symbol} 데이터:`, formattedData);
         result.push(formattedData);
