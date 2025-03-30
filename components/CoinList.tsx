@@ -32,6 +32,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
   const fetchCoins = async () => {
     try {
       setLoading(true);
+      console.log('코인 목록을 불러오는 중...');
       const response = await fetch(`/api/coins${favoritesOnly ? '?favorites=true' : ''}`);
       
       if (!response.ok) {
@@ -39,6 +40,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
       }
       
       const data = await response.json();
+      console.log('코인 목록 응답:', data);
       setCoins(data);
       setError(null);
     } catch (err) {
@@ -74,7 +76,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
       // 즐겨찾기만 보기 모드에서 즐겨찾기 해제한 경우 해당 코인 제거
       if (favoritesOnly) {
         setCoins(prevCoins =>
-          prevCoins.filter(coin => !(coin.symbol === symbol && coin.is_favorite))
+          prevCoins.filter(coin => !(coin.symbol === symbol && !coin.is_favorite))
         );
       }
     } catch (err) {
@@ -91,24 +93,45 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
     // 가격 정보 주기적 업데이트
     const fetchPrices = async () => {
       try {
-        const symbols = coins.map(coin => coin.symbol).join(',');
-        if (symbols) {
-          const response = await fetch(`/api/coins/prices?symbols=${symbols}`);
-          
-          if (!response.ok) {
-            throw new Error('가격 정보를 불러오는데 실패했습니다.');
-          }
-          
-          const priceData = await response.json();
-          
-          setCoins(prevCoins =>
-            prevCoins.map(coin => ({
-              ...coin,
-              current_price: priceData[coin.symbol]?.trade_price || coin.current_price,
-              change_rate: priceData[coin.symbol]?.signed_change_rate || coin.change_rate,
-            }))
-          );
+        // 코인이 없으면 조회하지 않음
+        if (coins.length === 0) {
+          console.log('가격 정보 업데이트: 코인이 없어 조회하지 않음');
+          return;
         }
+        
+        const symbols = coins.map(coin => coin.symbol).join(',');
+        console.log('가격 정보 조회 요청:', symbols);
+        
+        const response = await fetch(`/api/coins/prices?symbols=${symbols}`);
+        
+        if (!response.ok) {
+          throw new Error(`가격 정보를 불러오는데 실패했습니다. 상태: ${response.status}`);
+        }
+        
+        const priceData = await response.json();
+        console.log('가격 정보 응답:', priceData);
+        
+        // 디버깅을 위한 로그
+        let updateCount = 0;
+        
+        setCoins(prevCoins => {
+          return prevCoins.map(coin => {
+            // 해당 심볼의 가격 데이터 확인
+            const coinPriceData = priceData[coin.symbol];
+            
+            if (coinPriceData) {
+              updateCount++;
+              return {
+                ...coin,
+                current_price: coinPriceData.trade_price || coin.current_price,
+                change_rate: coinPriceData.signed_change_rate || coin.change_rate,
+              };
+            }
+            return coin;
+          });
+        });
+        
+        console.log(`가격 정보 업데이트 완료: ${updateCount}개 코인 업데이트됨`);
       } catch (err) {
         console.error('가격 정보 조회 에러:', err);
       }
@@ -118,7 +141,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
     const intervalId = setInterval(fetchPrices, 30000); // 30초마다 가격 정보 업데이트
     
     return () => clearInterval(intervalId);
-  }, [initialCoins.length]);
+  }, [initialCoins.length, coins.length]);
 
   // 필터링된 코인 목록
   const filteredCoins = coins.filter(
