@@ -14,6 +14,11 @@ const ensureDbInitialized = async () => {
   }
 };
 
+// JSON 안전 변환 함수
+function safeJSONify(obj: any): any {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 // 코인 목록 조회
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +29,11 @@ export async function GET(request: NextRequest) {
     const favoritesOnly = searchParams.get('favorites') === 'true';
     
     const coins = await getCoins(favoritesOnly);
-    return NextResponse.json(coins, { status: 200 });
+    
+    // JSON으로 안전하게 직렬화 가능한 형태로 변환
+    const safeCoins = safeJSONify(coins);
+    
+    return NextResponse.json(safeCoins, { status: 200 });
   } catch (error) {
     console.error('코인 목록 조회 오류:', error);
     return NextResponse.json(
@@ -56,7 +65,8 @@ export async function POST(request: NextRequest) {
       english_name: body.english_name
     });
     
-    return NextResponse.json(result, { status: 201 });
+    // JSON으로 안전하게 직렬화
+    return NextResponse.json(safeJSONify(result), { status: 201 });
   } catch (error) {
     console.error('코인 추가 오류:', error);
     return NextResponse.json(
