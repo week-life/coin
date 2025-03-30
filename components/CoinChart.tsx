@@ -112,3 +112,55 @@ const darkThemeColors = {
   histogram: '#4caf50',
   rsi: '#ba68c8'
 };
+
+export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) {
+  const [data, setData] = useState<CandleData[]>(initialData);
+  const [loading, setLoading] = useState<boolean>(initialData.length === 0);
+  const [error, setError] = useState<string | null>(null);
+  const [chartType] = useState<ChartType>('tradingview');
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>('1d');
+  const [indicators, setIndicators] = useState<Indicator[]>(['ma', 'volume', 'macd', 'rsi']);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [chartHeight, setChartHeight] = useState(800);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const priceChartRef = useRef<any>(null);
+  const volumeChartRef = useRef<any>(null);
+  const macdChartRef = useRef<any>(null);
+  const rsiChartRef = useRef<any>(null);
+  
+  // 차트 새 창으로 열기
+  const openInNewWindow = () => {
+    const newWindow = window.open('', '_blank', 'width=1200,height=800');
+    if (!newWindow) {
+      alert('팝업이 차단되었습니다. 팝업 차단을 해제해주세요.');
+      return;
+    }
+
+    newWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="ko">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${symbol} 차트 - ${timeFrame}</title>
+        <style>
+          body { margin: 0; padding: 20px; background-color: #1e222d; color: #d1d4dc; font-family: Arial, sans-serif; }
+          .chart-container { width: 100%; height: calc(100vh - 80px); }
+          h1 { margin-top: 0; }
+          .info { margin-bottom: 20px; }
+        </style>
+      </head>
+      <body>
+        <h1>${symbol} 차트</h1>
+        <div class="info">
+          <p>시간 프레임: ${timeFrame}</p>
+        </div>
+        <div class="chart-container">
+          <img alt="${symbol} 차트" style="max-width: 100%; max-height: 100%;">
+        </div>
+      </body>
+      </html>
+    `);
+    
+    newWindow.document.close();
+  };
