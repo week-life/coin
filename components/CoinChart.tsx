@@ -865,7 +865,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     };
   };
 
-  // 차트 간 동기화 핸들러 - 이벤트 등록
+// 차트 간 동기화 핸들러 - 이벤트 등록
   useEffect(() => {
     // 차트 인스턴스가 모두 생성된 후에만 실행
     if (!priceChartRef.current) return;
@@ -900,6 +900,11 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     // 메인 차트에 이벤트 리스너 추가
     const chartElement = priceChartRef.current;
     
+    // 드래그 핸들러 정의 - 클린업에서도 접근할 수 있도록 여기에 정의
+    const handleDrag = () => {
+      // 드래그 중에는 빈 함수
+    };
+    
     if (chartElement) {
       // 줌 이벤트 활성화
       chartElement.options.plugins.zoom.zoom.onZoom = handleZoom;
@@ -910,10 +915,6 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         setTimeout(() => handleZoom({ chart: chartElement }), 0);
       });
       
-      // 드래그 핸들러 정의
-      const handleDrag = () => {
-        // 드래그 중에는 빈 함수
-      };
       chartElement.canvas.addEventListener('mousedown', () => {
         chartElement.canvas.addEventListener('mousemove', handleDrag);
       });
