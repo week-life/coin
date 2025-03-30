@@ -123,3 +123,174 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       fetchCandleData();
     }
   }, [symbol, timeFrame, initialData.length]);
+
+  // 가격 차트 데이터
+  const getPriceChartData = () => {
+    if (!data.length) return { labels: [], datasets: [] };
+    
+    const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
+    console.log('정렬된 데이터 샘플:', sortedData.slice(0, 2));
+    
+    const labels = sortedData.map(candle => formatTimestamp(candle.timestamp));
+    const prices = sortedData.map(candle => {
+      // API 응답이 trade_price 또는 closing_price 중 하나를 사용할 수 있음
+      return candle.trade_price || candle.closing_price || 0;
+    });
+    
+    console.log('차트 라벨 샘플:', labels.slice(0, 3));
+    console.log('가격 데이터 샘플:', prices.slice(0, 3));
+    
+    const datasets: LineDataset[] = [
+      {
+        label: '가격',
+        data: prices,
+        borderColor: 'rgb(53, 162, 235)',
+        backgroundColor: 'rgba(53, 162, 235, 0.5)',
+        tension: 0.1
+      }
+    ];
+    
+    // 이동평균선 추가
+    if (showMA) {
+      const ma5 = calculateMA(prices, 5);
+      const ma20 = calculateMA(prices, 20);
+      
+      datasets.push(
+        {
+          label: 'MA5',
+          data: ma5,
+          borderColor: 'rgba(255, 99, 132, 1)',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.1,
+          backgroundColor: 'rgba(255, 99, 132, 0)'
+        },
+        {
+          label: 'MA20',
+          data: ma20,
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.1,
+          backgroundColor: 'rgba(75, 192, 192, 0)'
+        }
+      );
+    }
+    
+    // 볼린저 밴드 추가
+    if (showBB) {
+      const { upper, middle, lower } = calculateBollingerBands(prices);
+      
+      datasets.push(
+        {
+          label: '볼린저 상단',
+          data: upper,
+          borderColor: 'rgba(255, 159, 64, 1)',
+          borderWidth: 1,
+          pointRadius: 0,
+          borderDash: [5, 5],
+          tension: 0.1,
+          backgroundColor: 'rgba(255, 159, 64, 0)'
+        },
+        {
+          label: '볼린저 중단',
+          data: middle,
+          borderColor: 'rgba(255, 159, 64, 0.5)',
+          borderWidth: 1,
+          pointRadius: 0,
+          tension: 0.1,
+          backgroundColor: 'rgba(255, 159, 64, 0)'
+        },
+        {
+          label: '볼린저 하단',
+          data: lower,
+          borderColor: 'rgba(255, 159, 64, 1)',
+          borderWidth: 1,
+          pointRadius: 0,
+          borderDash: [5, 5],
+          tension: 0.1,
+          backgroundColor: 'rgba(255, 159, 64, 0)'
+        }
+      );
+    }
+    
+    return { labels, datasets };
+  };
+
+  // 거래량 차트 데이터
+  const getVolumeChartData = () => {
+    if (!data.length) return { labels: [], datasets: [] };
+    
+    const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
+    
+    const labels = sortedData.map(candle => formatTimestamp(candle.timestamp));
+    const volumes = sortedData.map(candle => candle.candle_acc_trade_volume || candle.volume || 0);
+    
+    // 색상 계산 (상승/하락 구분)
+    const colors = sortedData.map((candle, index, arr) => {
+      if (index === 0) return 'rgba(53, 162, 235, 0.5)';
+      const prevCandle = arr[index - 1];
+      return candle.trade_price >= prevCandle.trade_price
+        ? 'rgba(75, 192, 192, 0.5)' // 상승 또는 유지 (초록)
+        : 'rgba(255, 99, 132, 0.5)'; // 하락 (빨강)
+    });
+    
+    const borderColors = colors.map(color => color.replace('0.5', '1'));
+    
+    const datasets: BarDataset[] = [
+      {
+        label: '거래량',
+        data: volumes,
+        backgroundColor: colors,
+        borderColor: borderColors,
+        borderWidth: 1
+      }
+    ];
+    
+    return { labels, datasets };
+  };
+
+  // 기술적 지표 차트 데이터
+  const getTechnicalChartData = () => {
+    if (!data.length) return { labels: [], datasets: [] };
+    
+    const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
+    
+    const labels = sortedData.map(candle => formatTimestamp(candle.timestamp));
+    const prices = sortedData.map(candle => candle.trade_price || candle.closing_price || 0);
+    
+    // RSI 계산
+    const rsiValues = calculateRSI(prices);
+    
+    // MACD 계산
+    const { macd, signal, histogram } = calculateMACD(prices);
+    
+    const datasets: LineDataset[] = [
+      {
+        label: 'RSI',
+        data: rsiValues,
+        borderColor: 'rgb(255, 99, 132)',
+        backgroundColor: 'rgba(255, 99, 132, 0.5)',
+        yAxisID: 'y',
+        tension: 0.1
+      },
+      {
+        label: 'MACD',
+        data: macd,
+        borderColor: 'rgb(53, 162, 235)',
+        backgroundColor: 'rgba(53, 162, 235, 0.5)',
+        yAxisID: 'y1',
+        tension: 0.1
+      },
+      {
+        label: 'Signal',
+        data: signal,
+        borderColor: 'rgb(255, 159, 64)',
+        backgroundColor: 'rgba(255, 159, 64, 0.5)',
+        yAxisID: 'y1',
+        tension: 0.1
+      }
+    ];
+    
+    return { labels, datasets };
+  };
