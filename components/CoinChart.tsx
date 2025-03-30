@@ -48,6 +48,27 @@ interface CoinChartProps {
 type ChartType = 'price' | 'volume' | 'technicals';
 type TimeFrame = '1m' | '3m' | '5m' | '15m' | '30m' | '1h' | '1d' | '1w' | '1M';
 
+// 타입스크립트 오류 해결을 위한 추가 인터페이스
+interface LineDataset {
+  label: string;
+  data: number[];
+  borderColor: string;
+  backgroundColor: string;
+  tension: number;
+  borderWidth?: number;
+  pointRadius?: number;
+  yAxisID?: string;
+  borderDash?: number[];
+}
+
+interface BarDataset {
+  label: string;
+  data: number[];
+  backgroundColor: string | string[];
+  borderColor?: string | string[];
+  borderWidth?: number;
+}
+
 const timeFrameMapping: Record<TimeFrame, { unit: string; value: number }> = {
   '1m': { unit: 'minutes', value: 1 },
   '3m': { unit: 'minutes', value: 3 },
@@ -110,7 +131,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     const labels = sortedData.map(candle => formatTimestamp(candle.timestamp));
     const prices = sortedData.map(candle => candle.trade_price);
     
-    const datasets = [
+    const datasets: LineDataset[] = [
       {
         label: '가격',
         data: prices,
@@ -132,7 +153,8 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           borderColor: 'rgba(255, 99, 132, 1)',
           borderWidth: 1.5,
           pointRadius: 0,
-          tension: 0.1
+          tension: 0.1,
+          backgroundColor: 'rgba(255, 99, 132, 0)'
         },
         {
           label: 'MA20',
@@ -140,7 +162,8 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           borderColor: 'rgba(75, 192, 192, 1)',
           borderWidth: 1.5,
           pointRadius: 0,
-          tension: 0.1
+          tension: 0.1,
+          backgroundColor: 'rgba(75, 192, 192, 0)'
         }
       );
     }
@@ -157,7 +180,8 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           borderWidth: 1,
           pointRadius: 0,
           borderDash: [5, 5],
-          tension: 0.1
+          tension: 0.1,
+          backgroundColor: 'rgba(255, 159, 64, 0)'
         },
         {
           label: '볼린저 중단',
@@ -165,7 +189,8 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           borderColor: 'rgba(255, 159, 64, 0.5)',
           borderWidth: 1,
           pointRadius: 0,
-          tension: 0.1
+          tension: 0.1,
+          backgroundColor: 'rgba(255, 159, 64, 0)'
         },
         {
           label: '볼린저 하단',
@@ -174,7 +199,8 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           borderWidth: 1,
           pointRadius: 0,
           borderDash: [5, 5],
-          tension: 0.1
+          tension: 0.1,
+          backgroundColor: 'rgba(255, 159, 64, 0)'
         }
       );
     }
@@ -200,18 +226,19 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         : 'rgba(255, 99, 132, 0.5)'; // 하락 (빨강)
     });
     
-    return {
-      labels,
-      datasets: [
-        {
-          label: '거래량',
-          data: volumes,
-          backgroundColor: colors,
-          borderColor: colors.map(color => color.replace('0.5', '1')),
-          borderWidth: 1
-        }
-      ]
-    };
+    const borderColors = colors.map(color => color.replace('0.5', '1'));
+    
+    const datasets: BarDataset[] = [
+      {
+        label: '거래량',
+        data: volumes,
+        backgroundColor: colors,
+        borderColor: borderColors,
+        borderWidth: 1
+      }
+    ];
+    
+    return { labels, datasets };
   };
 
   // 기술적 지표 차트 데이터
@@ -229,35 +256,34 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     // MACD 계산
     const { macd, signal, histogram } = calculateMACD(prices);
     
-    return {
-      labels,
-      datasets: [
-        {
-          label: 'RSI',
-          data: rsiValues,
-          borderColor: 'rgb(255, 99, 132)',
-          backgroundColor: 'rgba(255, 99, 132, 0.5)',
-          yAxisID: 'y',
-          tension: 0.1
-        },
-        {
-          label: 'MACD',
-          data: macd,
-          borderColor: 'rgb(53, 162, 235)',
-          backgroundColor: 'rgba(53, 162, 235, 0.5)',
-          yAxisID: 'y1',
-          tension: 0.1
-        },
-        {
-          label: 'Signal',
-          data: signal,
-          borderColor: 'rgb(255, 159, 64)',
-          backgroundColor: 'rgba(255, 159, 64, 0.5)',
-          yAxisID: 'y1',
-          tension: 0.1
-        }
-      ]
-    };
+    const datasets: LineDataset[] = [
+      {
+        label: 'RSI',
+        data: rsiValues,
+        borderColor: 'rgb(255, 99, 132)',
+        backgroundColor: 'rgba(255, 99, 132, 0.5)',
+        yAxisID: 'y',
+        tension: 0.1
+      },
+      {
+        label: 'MACD',
+        data: macd,
+        borderColor: 'rgb(53, 162, 235)',
+        backgroundColor: 'rgba(53, 162, 235, 0.5)',
+        yAxisID: 'y1',
+        tension: 0.1
+      },
+      {
+        label: 'Signal',
+        data: signal,
+        borderColor: 'rgb(255, 159, 64)',
+        backgroundColor: 'rgba(255, 159, 64, 0.5)',
+        yAxisID: 'y1',
+        tension: 0.1
+      }
+    ];
+    
+    return { labels, datasets };
   };
 
   const getChartOptions = () => {
