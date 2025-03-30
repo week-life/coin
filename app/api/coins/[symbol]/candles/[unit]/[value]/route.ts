@@ -20,7 +20,57 @@ export async function GET(
     switch (unit) {
       case 'minutes':
         console.log(`[캔들 API] 분 단위 캔들 데이터 요청 중... (${value}분)`);
-        candleData = await getMinuteCandles(symbol, parseInt(value) as any, count);
+        
+        // 4시간(240분) 특별 처리
+        if (parseInt(value) === 240) {
+          console.log('[캔들 API] 4시간 봉 처리 중...');
+          // 4시간 봉은 1시간 봉 4개를 묶어서 생성
+          const hourlyCandles = await getMinuteCandles(symbol, 60, count * 4);
+          
+          if (hourlyCandles && hourlyCandles.length > 0) {
+            // 4시간 간격으로 데이터 그룹화
+            const groupedCandles = [];
+            for (let i = 0; i < hourlyCandles.length; i += 4) {
+              const fourHourGroup = hourlyCandles.slice(i, i + 4);
+              
+              if (fourHourGroup.length > 0) {
+                // 4시간 봉 생성
+                const firstCandle = fourHourGroup[0];
+                const lastCandle = fourHourGroup[fourHourGroup.length - 1];
+                
+                // 고가와 저가는 4시간 내 모든 봉의 최대/최소값
+                const highPrice = Math.max(...fourHourGroup.map(c => c.high_price));
+                const lowPrice = Math.min(...fourHourGroup.map(c => c.low_price));
+                
+                // 거래량은 4시간 내 모든 봉의 합계
+                const volume = fourHourGroup.reduce((sum, c) => sum + (c.volume || c.candle_acc_trade_volume || 0), 0);
+                const tradePriceSum = fourHourGroup.reduce((sum, c) => sum + (c.candle_acc_trade_price || 0), 0);
+                
+                groupedCandles.push({
+                  timestamp: firstCandle.timestamp,
+                  opening_price: firstCandle.opening_price,
+                  high_price: highPrice,
+                  low_price: lowPrice,
+                  closing_price: lastCandle.closing_price,
+                  trade_price: lastCandle.closing_price || lastCandle.trade_price,
+                  volume: volume,
+                  candle_acc_trade_volume: volume,
+                  candle_acc_trade_price: tradePriceSum
+                });
+              }
+            }
+            
+            candleData = groupedCandles.slice(0, count);
+            console.log(`[캔들 API] 4시간 봉 생성 완료: ${candleData.length}개 항목`);
+          } else {
+            console.log('[캔들 API] 4시간 봉 생성 실패: 1시간 봉 데이터가 없습니다');
+            candleData = [];
+          }
+        } else {
+          // 일반적인 분 단위 캔들 처리
+          candleData = await getMinuteCandles(symbol, parseInt(value) as any, count);
+        }
+        
         candleType = 'minute';
         break;
       case 'days':
