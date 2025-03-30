@@ -3,8 +3,8 @@ import axios from 'axios';
 // Cloudflare API 기본 설정
 const CLOUDFLARE_API_URL = 'https://api.cloudflare.com/client/v4';
 const API_TOKEN = process.env.CLOUDFLARE_API_TOKEN;
-const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID;
-const DATABASE_ID = process.env.CLOUDFLARE_D1_DATABASE_ID;
+const ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID || '3089f656c1f39b1156a4007b0a9d9fdd';
+const DATABASE_ID = process.env.CLOUDFLARE_D1_DATABASE_ID || '4c32ba78-84f7-49bc-828b-23705e3fd163';
 
 // API 호출을 위한 기본 설정
 const api = axios.create({
@@ -43,19 +43,17 @@ export async function executeD1Query(sql: string, params: any[] = []) {
   }
 }
 
-// D1 데이터베이스 배치 쿼리 실행 (여러 쿼리 동시 실행)
+// D1 데이터베이스 배치 쿼리 실행 (여러 쿼리 개별적으로 실행)
 export async function executeD1BatchQueries(statements: { sql: string; params?: any[] }[]) {
   try {
-    const response = await api.post(
-      `/accounts/${ACCOUNT_ID}/d1/database/${DATABASE_ID}/query/batch`,
-      { operations: statements }
-    );
-    
-    if (!response.data.success) {
-      throw new Error(`D1 배치 쿼리 오류: ${JSON.stringify(response.data.errors)}`);
+    // 각 쿼리를 개별적으로 실행
+    const results = [];
+    for (const statement of statements) {
+      const result = await executeD1Query(statement.sql, statement.params || []);
+      results.push(result);
     }
     
-    return response.data.result;
+    return results;
   } catch (error) {
     console.error('D1 배치 쿼리 실행 오류:', error);
     throw error;
@@ -93,20 +91,24 @@ export async function initializeDatabase() {
     )
   `;
   
-  const createIndexesQuery = `
-    CREATE INDEX IF NOT EXISTS idx_coins_symbol ON coins(symbol);
-    CREATE INDEX IF NOT EXISTS idx_coins_favorite ON coins(is_favorite);
-    CREATE INDEX IF NOT EXISTS idx_price_history_coin_id ON price_history(coin_id);
-    CREATE INDEX IF NOT EXISTS idx_price_history_timestamp ON price_history(timestamp);
-    CREATE INDEX IF NOT EXISTS idx_price_history_coin_timestamp ON price_history(coin_id, timestamp);
-  `;
+  // 인덱스 생성 쿼리를 개별적으로 분리
+  const createIndexQueries = [
+    `CREATE INDEX IF NOT EXISTS idx_coins_symbol ON coins(symbol)`,
+    `CREATE INDEX IF NOT EXISTS idx_coins_favorite ON coins(is_favorite)`,
+    `CREATE INDEX IF NOT EXISTS idx_price_history_coin_id ON price_history(coin_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_price_history_timestamp ON price_history(timestamp)`,
+    `CREATE INDEX IF NOT EXISTS idx_price_history_coin_timestamp ON price_history(coin_id, timestamp)`
+  ];
   
   try {
-    await executeD1BatchQueries([
-      { sql: createCoinsTableQuery },
-      { sql: createPriceHistoryTableQuery },
-      { sql: createIndexesQuery }
-    ]);
+    // 테이블 생성
+    await executeD1Query(createCoinsTableQuery);
+    await executeD1Query(createPriceHistoryTableQuery);
+    
+    // 인덱스 생성
+    for (const indexQuery of createIndexQueries) {
+      await executeD1Query(indexQuery);
+    }
     
     console.log('데이터베이스 초기화 완료');
     return true;
