@@ -164,3 +164,102 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     
     newWindow.document.close();
   };
+
+  // 풀스크린 토글
+  const toggleFullScreen = () => {
+    setIsFullScreen(!isFullScreen);
+    if (chartContainerRef.current) {
+      if (!isFullScreen) {
+        if (chartContainerRef.current.requestFullscreen) {
+          chartContainerRef.current.requestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+  };
+
+  // 차트 높이 조절
+  const increaseChartHeight = () => {
+    setChartHeight(prev => prev + 200);
+  };
+
+  const decreaseChartHeight = () => {
+    setChartHeight(prev => Math.max(400, prev - 200));
+  };
+
+  // 차트 줌 초기화
+  const resetZoom = () => {
+    if (priceChartRef.current) {
+      priceChartRef.current.resetZoom();
+    }
+    if (volumeChartRef.current && indicators.includes('volume')) {
+      volumeChartRef.current.resetZoom();
+    }
+    if (macdChartRef.current && indicators.includes('macd')) {
+      macdChartRef.current.resetZoom();
+    }
+    if (rsiChartRef.current && indicators.includes('rsi')) {
+      rsiChartRef.current.resetZoom();
+    }
+  };
+
+  // 캔들 데이터 조회
+  const fetchCandleData = async () => {
+    try {
+      setLoading(true);
+      
+      const { unit, value } = timeFrameMapping[timeFrame];
+      const endpoint = `/api/coins/${symbol}/candles/${unit}/${value}?count=100`;
+      console.log('차트 데이터 요청 엔드포인트:', endpoint);
+      
+      const response = await fetch(endpoint);
+      
+      if (!response.ok) {
+        throw new Error(`차트 데이터를 불러오는데 실패했습니다. 상태 코드: ${response.status}`);
+      }
+      
+      const candleData = await response.json();
+      
+      if (!candleData || !Array.isArray(candleData)) {
+        console.error('유효하지 않은 캔들 데이터 응답:', candleData);
+        throw new Error('유효하지 않은 캔들 데이터 응답을 받았습니다.');
+      }
+      
+      console.log('응답 받은 캔들 데이터:', candleData.length, '개 항목');
+      
+      if (candleData.length > 0) {
+        console.log('첫 번째 캔들 데이터 샘플:', candleData[0]);
+        console.log('마지막 캔들 데이터 샘플:', candleData[candleData.length - 1]);
+      }
+      
+      setData(candleData);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+      console.error('차트 데이터 조회 에러:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 최초 마운트 시 차트 데이터 가져오기
+  useEffect(() => {
+    if (initialData.length === 0) {
+      fetchCandleData();
+    }
+  }, [symbol, timeFrame, initialData.length]);
+
+  // 풀스크린 변경 이벤트 리스너
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullScreenChange);
+    };
+  }, []);
