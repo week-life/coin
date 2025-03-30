@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     const apiKey = request.headers.get('x-api-key') || request.nextUrl.searchParams.get('key');
     
     if (apiKey !== ADMIN_API_KEY) {
+      console.log('인증 실패: 부적절한 API 키', { provided: apiKey, expected: ADMIN_API_KEY });
       return NextResponse.json(
         { error: '인증 실패: 유효한 API 키가 필요합니다.' },
         { status: 401 }
@@ -24,7 +25,9 @@ export async function GET(request: NextRequest) {
     console.log('데이터베이스 초기화 완료!');
     
     // 코인 데이터 추가
+    console.log('코인 데이터 시드 시작...');
     await seedCoins();
+    console.log('코인 데이터 시드 완료!');
     
     return NextResponse.json(
       { success: true, message: '데이터베이스 초기화 및 코인 데이터 추가가 완료되었습니다.' },
