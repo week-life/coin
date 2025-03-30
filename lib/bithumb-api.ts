@@ -84,15 +84,34 @@ export async function getMinuteCandles(symbol: string, unit: 1 | 3 | 5 | 10 | 30
       throw new Error(`API Error: ${response.data.message}`);
     }
     
+    // 캔들 데이터가 있는지 확인
+    if (!response.data.data || !Array.isArray(response.data.data) || response.data.data.length === 0) {
+      console.log(`[빗썸 API] ${symbol} ${unit}분 캔들 데이터가 없습니다.`);
+      return [];
+    }
+    
+    console.log(`[빗썸 API] ${symbol} ${unit}분 캔들 데이터 ${response.data.data.length}개 항목 수신`);
+    console.log('[빗썸 API] 첫 번째 캔들 데이터 샘플:', JSON.stringify(response.data.data[0]));
+    
     // 캔들 데이터 처리 (API에 맞게 변환)
-    return response.data.data.slice(0, count).map((candle: any[]) => ({
+    const result = response.data.data.slice(0, count).map((candle: any[]) => ({
       timestamp: candle[0],
       opening_price: parseFloat(candle[1]),
       high_price: parseFloat(candle[2]),
       low_price: parseFloat(candle[3]),
       closing_price: parseFloat(candle[4]),
-      volume: parseFloat(candle[5])
+      volume: parseFloat(candle[5]),
+      // 차트 컴포넌트 호환성을 위한 필드 추가
+      trade_price: parseFloat(candle[4]), // closing_price와 동일
+      candle_acc_trade_volume: parseFloat(candle[5]) // volume과 동일
     }));
+    
+    console.log(`[빗썸 API] 변환된 캔들 데이터 ${result.length}개 항목`);
+    if (result.length > 0) {
+      console.log('[빗썸 API] 변환된 첫 번째 캔들 데이터 샘플:', JSON.stringify(result[0]));
+    }
+    
+    return result;
   } catch (error) {
     return safeReturn([])(error);
   }
@@ -109,14 +128,33 @@ export async function getDayCandles(symbol: string, count: number = 200) {
       throw new Error(`API Error: ${response.data.message}`);
     }
     
-    return response.data.data.slice(0, count).map((candle: any[]) => ({
+    // 캔들 데이터가 있는지 확인
+    if (!response.data.data || !Array.isArray(response.data.data) || response.data.data.length === 0) {
+      console.log(`[빗썸 API] ${symbol} 일간 캔들 데이터가 없습니다.`);
+      return [];
+    }
+    
+    console.log(`[빗썸 API] ${symbol} 일간 캔들 데이터 ${response.data.data.length}개 항목 수신`);
+    console.log('[빗썸 API] 첫 번째 일간 캔들 데이터 샘플:', JSON.stringify(response.data.data[0]));
+    
+    const result = response.data.data.slice(0, count).map((candle: any[]) => ({
       timestamp: candle[0],
       opening_price: parseFloat(candle[1]),
       high_price: parseFloat(candle[2]),
       low_price: parseFloat(candle[3]),
       closing_price: parseFloat(candle[4]),
-      volume: parseFloat(candle[5])
+      volume: parseFloat(candle[5]),
+      // 차트 컴포넌트 호환성을 위한 필드 추가
+      trade_price: parseFloat(candle[4]), // closing_price와 동일
+      candle_acc_trade_volume: parseFloat(candle[5]) // volume과 동일
     }));
+    
+    console.log(`[빗썸 API] 변환된 일간 캔들 데이터 ${result.length}개 항목`);
+    if (result.length > 0) {
+      console.log('[빗썸 API] 변환된 첫 번째 일간 캔들 데이터 샘플:', JSON.stringify(result[0]));
+    }
+    
+    return result;
   } catch (error) {
     return safeReturn([])(error);
   }
