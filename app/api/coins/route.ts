@@ -16,7 +16,31 @@ const ensureDbInitialized = async () => {
 
 // JSON 안전 변환 함수
 function safeJSONify(obj: any): any {
-  return JSON.parse(JSON.stringify(obj));
+  // obj가 undefined 또는 null인 경우 빈 배열을 반환
+  if (obj === undefined || obj === null) {
+    return [];
+  }
+  
+  try {
+    // 특수 값을 처리하기 위한 함수
+    const replacer = (key: string, value: any) => {
+      // BigInt 처리
+      if (typeof value === 'bigint') {
+        return value.toString();
+      }
+      // Date 객체 처리
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      return value;
+    };
+    
+    // JSON으로 변환 후 다시 파싱
+    return JSON.parse(JSON.stringify(obj, replacer));
+  } catch (error) {
+    console.error('JSON 변환 오류:', error);
+    return [];
+  }
 }
 
 // 코인 목록 조회
@@ -30,9 +54,15 @@ export async function GET(request: NextRequest) {
     
     const coins = await getCoins(favoritesOnly);
     
-    // JSON으로 안전하게 직렬화 가능한 형태로 변환
-    const safeCoins = safeJSONify(coins);
+    // 데이터 검증 후 안전하게 변환
+    console.log('Retrieved coins:', coins); // 데이터 로깅
     
+    // 비어있을 경우를 대비
+    if (!coins) {
+      return NextResponse.json([], { status: 200 });
+    }
+    
+    const safeCoins = safeJSONify(coins);
     return NextResponse.json(safeCoins, { status: 200 });
   } catch (error) {
     console.error('코인 목록 조회 오류:', error);
@@ -65,7 +95,11 @@ export async function POST(request: NextRequest) {
       english_name: body.english_name
     });
     
-    // JSON으로 안전하게 직렬화
+    // 비어있을 경우를 대비
+    if (!result) {
+      return NextResponse.json({ success: true }, { status: 201 });
+    }
+    
     return NextResponse.json(safeJSONify(result), { status: 201 });
   } catch (error) {
     console.error('코인 추가 오류:', error);
