@@ -104,11 +104,23 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       const response = await fetch(endpoint);
       
       if (!response.ok) {
-        throw new Error('차트 데이터를 불러오는데 실패했습니다.');
+        throw new Error(`차트 데이터를 불러오는데 실패했습니다. 상태 코드: ${response.status}`);
       }
       
       const candleData = await response.json();
+      
+      if (!candleData || !Array.isArray(candleData)) {
+        console.error('유효하지 않은 캔들 데이터 응답:', candleData);
+        throw new Error('유효하지 않은 캔들 데이터 응답을 받았습니다.');
+      }
+      
       console.log('응답 받은 캔들 데이터:', candleData.length, '개 항목');
+      
+      if (candleData.length > 0) {
+        console.log('첫 번째 캔들 데이터 샘플:', candleData[0]);
+        console.log('마지막 캔들 데이터 샘플:', candleData[candleData.length - 1]);
+      }
+      
       setData(candleData);
       setError(null);
     } catch (err) {
@@ -128,19 +140,34 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
 
   // 가격 차트 데이터
   const getPriceChartData = () => {
-    if (!data.length) return { labels: [], datasets: [] };
+    if (!data.length) {
+      console.log('차트 데이터가 없습니다.');
+      return { labels: [], datasets: [] };
+    }
     
     const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
-    console.log('정렬된 데이터 샘플:', sortedData.slice(0, 2));
+    console.log('정렬된 데이터 개수:', sortedData.length);
+    
+    if (sortedData.length > 0) {
+      console.log('정렬된 첫 번째 데이터:', sortedData[0]);
+      console.log('정렬된 마지막 데이터:', sortedData[sortedData.length - 1]);
+    }
     
     const labels = sortedData.map(candle => formatTimestamp(candle.timestamp));
+    
+    // 가격 데이터 추출 (여러 필드 중 하나 선택)
     const prices = sortedData.map(candle => {
-      // API 응답이 trade_price 또는 closing_price 중 하나를 사용할 수 있음
-      return candle.trade_price || candle.closing_price || 0;
+      const price = candle.trade_price || candle.closing_price || 0;
+      if (!price || isNaN(price)) {
+        console.warn('유효하지 않은 가격 데이터:', candle);
+        return 0;
+      }
+      return price;
     });
     
-    console.log('차트 라벨 샘플:', labels.slice(0, 3));
-    console.log('가격 데이터 샘플:', prices.slice(0, 3));
+    console.log('차트 라벨 개수:', labels.length);
+    console.log('가격 데이터 개수:', prices.length);
+    console.log('가격 범위 - 최소:', Math.min(...prices), '최대:', Math.max(...prices));
     
     const datasets: LineDataset[] = [
       {
@@ -148,7 +175,8 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         data: prices,
         borderColor: 'rgb(53, 162, 235)',
         backgroundColor: 'rgba(53, 162, 235, 0.5)',
-        tension: 0.1
+        tension: 0.1,
+        pointRadius: 1
       }
     ];
     
@@ -228,11 +256,16 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     const labels = sortedData.map(candle => formatTimestamp(candle.timestamp));
     const volumes = sortedData.map(candle => candle.candle_acc_trade_volume || candle.volume || 0);
     
+    console.log('거래량 데이터 개수:', volumes.length);
+    console.log('거래량 범위 - 최소:', Math.min(...volumes), '최대:', Math.max(...volumes));
+    
     // 색상 계산 (상승/하락 구분)
     const colors = sortedData.map((candle, index, arr) => {
       if (index === 0) return 'rgba(53, 162, 235, 0.5)';
       const prevCandle = arr[index - 1];
-      return candle.trade_price >= prevCandle.trade_price
+      const currentPrice = candle.trade_price || candle.closing_price || 0;
+      const prevPrice = prevCandle.trade_price || prevCandle.closing_price || 0;
+      return currentPrice >= prevPrice
         ? 'rgba(75, 192, 192, 0.5)' // 상승 또는 유지 (초록)
         : 'rgba(255, 99, 132, 0.5)'; // 하락 (빨강)
     });
@@ -266,6 +299,9 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     
     // MACD 계산
     const { macd, signal, histogram } = calculateMACD(prices);
+    
+    console.log('RSI 데이터 개수:', rsiValues.length);
+    console.log('MACD 데이터 개수:', macd.length);
     
     const datasets: LineDataset[] = [
       {
@@ -303,11 +339,22 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       return {
         responsive: true,
         maintainAspectRatio: false,
+        animation: {
+          duration: 0 // 애니메이션 비활성화로 성능 향상
+        },
         interaction: {
           mode: 'index' as const,
           intersect: false,
         },
         scales: {
+          x: {
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45,
+              autoSkip: true,
+              maxTicksLimit: 10
+            }
+          },
           y: {
             type: 'linear' as const,
             display: true,
@@ -341,6 +388,9 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     return {
       responsive: true,
       maintainAspectRatio: false,
+      animation: {
+        duration: 0 // 애니메이션 비활성화로 성능 향상
+      },
       plugins: {
         legend: {
           position: 'top' as const,
@@ -352,6 +402,16 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
             : `${symbol} 거래량 차트`,
         },
       },
+      scales: {
+        x: {
+          ticks: {
+            maxRotation: 45,
+            minRotation: 45,
+            autoSkip: true,
+            maxTicksLimit: 10
+          }
+        }
+      }
     };
   };
 
@@ -382,15 +442,34 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       );
     }
 
-    switch (chartType) {
-      case 'price':
-        return <Line data={getPriceChartData()} options={getChartOptions()} />;
-      case 'volume':
-        return <Bar data={getVolumeChartData()} options={getChartOptions()} />;
-      case 'technicals':
-        return <Line data={getTechnicalChartData()} options={getChartOptions()} />;
-      default:
-        return null;
+    try {
+      console.log(`${chartType} 차트 렌더링 시작...`);
+      
+      let chartElement = null;
+      switch (chartType) {
+        case 'price':
+          chartElement = <Line data={getPriceChartData()} options={getChartOptions()} />;
+          break;
+        case 'volume':
+          chartElement = <Bar data={getVolumeChartData()} options={getChartOptions()} />;
+          break;
+        case 'technicals':
+          chartElement = <Line data={getTechnicalChartData()} options={getChartOptions()} />;
+          break;
+        default:
+          return null;
+      }
+      
+      console.log(`${chartType} 차트 렌더링 완료`);
+      return chartElement;
+    } catch (err) {
+      console.error('차트 렌더링 오류:', err);
+      return (
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+          <p className="text-red-500">차트 렌더링 중 오류가 발생했습니다.</p>
+          <Button onClick={fetchCandleData}>다시 시도</Button>
+        </div>
+      );
     }
   };
 
@@ -456,7 +535,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         </div>
       )}
       
-      <div className="h-[500px] w-full">
+      <div className="h-[500px] w-full bg-white p-4 rounded-lg">
         {renderChart()}
       </div>
     </div>
