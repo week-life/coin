@@ -58,12 +58,22 @@ export async function GET(request: NextRequest) {
     console.log('Retrieved coins:', coins); // 데이터 로깅
     
     // 비어있을 경우를 대비
-    if (!coins) {
+    if (!coins || !Array.isArray(coins) || coins.length === 0) {
       return NextResponse.json([], { status: 200 });
     }
     
-    const safeCoins = safeJSONify(coins);
-    return NextResponse.json(safeCoins, { status: 200 });
+    // 응답 데이터 형식 표준화
+    const formattedCoins = coins.map(coin => ({
+      id: coin.id,
+      symbol: coin.symbol,
+      market: coin.market || `KRW-${coin.symbol}`, // 마켓 정보가 없을 경우 기본값 설정
+      korean_name: coin.korean_name,
+      english_name: coin.english_name,
+      is_favorite: Boolean(coin.is_favorite),
+      added_at: coin.added_at
+    }));
+    
+    return NextResponse.json(formattedCoins, { status: 200 });
   } catch (error) {
     console.error('코인 목록 조회 오류:', error);
     return NextResponse.json(
