@@ -38,6 +38,8 @@ interface CandleData {
   trade_price: number;
   candle_acc_trade_volume: number;
   candle_acc_trade_price: number;
+  closing_price?: number;
+  volume?: number;
 }
 
 interface CoinChartProps {
@@ -294,3 +296,169 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     
     return { labels, datasets };
   };
+
+  // 차트 옵션 설정
+  const getChartOptions = () => {
+    if (chartType === 'technicals') {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index' as const,
+          intersect: false,
+        },
+        scales: {
+          y: {
+            type: 'linear' as const,
+            display: true,
+            position: 'left' as const,
+            title: {
+              display: true,
+              text: 'RSI'
+            },
+            min: 0,
+            max: 100,
+            grid: {
+              drawOnChartArea: false
+            }
+          },
+          y1: {
+            type: 'linear' as const,
+            display: true,
+            position: 'right' as const,
+            title: {
+              display: true,
+              text: 'MACD'
+            },
+            grid: {
+              drawOnChartArea: false
+            }
+          }
+        }
+      };
+    }
+    
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top' as const,
+        },
+        title: {
+          display: true,
+          text: chartType === 'price' 
+            ? `${symbol} 가격 차트` 
+            : `${symbol} 거래량 차트`,
+        },
+      },
+    };
+  };
+
+  // 차트 렌더링
+  const renderChart = () => {
+    if (loading) {
+      return (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+          <p className="text-red-500">{error}</p>
+          <Button onClick={fetchCandleData}>다시 시도</Button>
+        </div>
+      );
+    }
+
+    if (!data.length) {
+      return (
+        <div className="flex justify-center items-center h-64">
+          <p className="text-gray-500">데이터가 없습니다.</p>
+        </div>
+      );
+    }
+
+    switch (chartType) {
+      case 'price':
+        return <Line data={getPriceChartData()} options={getChartOptions()} />;
+      case 'volume':
+        return <Bar data={getVolumeChartData()} options={getChartOptions()} />;
+      case 'technicals':
+        return <Line data={getTechnicalChartData()} options={getChartOptions()} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap justify-between items-center gap-2">
+        <div className="flex flex-wrap gap-1">
+          <Button
+            variant={chartType === 'price' ? 'default' : 'outline'}
+            onClick={() => setChartType('price')}
+            size="sm"
+          >
+            가격
+          </Button>
+          <Button
+            variant={chartType === 'volume' ? 'default' : 'outline'}
+            onClick={() => setChartType('volume')}
+            size="sm"
+          >
+            거래량
+          </Button>
+          <Button
+            variant={chartType === 'technicals' ? 'default' : 'outline'}
+            onClick={() => setChartType('technicals')}
+            size="sm"
+          >
+            기술적 지표
+          </Button>
+        </div>
+        
+        <div className="flex flex-wrap gap-1">
+          {Object.keys(timeFrameMapping).map((tf) => (
+            <Button
+              key={tf}
+              variant={timeFrame === tf ? 'default' : 'outline'}
+              onClick={() => setTimeFrame(tf as TimeFrame)}
+              size="sm"
+            >
+              {tf}
+            </Button>
+          ))}
+        </div>
+      </div>
+      
+      {chartType === 'price' && (
+        <div className="flex gap-2">
+          <label className="flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={showMA}
+              onChange={() => setShowMA(!showMA)}
+            />
+            이동평균선
+          </label>
+          <label className="flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={showBB}
+              onChange={() => setShowBB(!showBB)}
+            />
+            볼린저 밴드
+          </label>
+        </div>
+      )}
+      
+      <div className="h-[500px] w-full">
+        {renderChart()}
+      </div>
+    </div>
+  );
+}
