@@ -55,20 +55,35 @@ export async function executeD1Query(sql: string, params: any[] = []) {
       throw new Error(`D1 쿼리 오류: ${JSON.stringify(response.data.errors)}`);
     }
     
-    // result가 undefined인 경우 빈 결과 객체 반환
+    // result가 없는 경우 처리
     if (!response.data.result) {
       console.log('API 응답에 result가 없습니다. 빈 배열을 반환합니다.');
       return { results: [] };
     }
     
-    // results 속성이 없는 경우 추가
-    if (!response.data.result.results) {
-      console.log('API 응답에 results 배열이 없습니다. 빈 배열을 추가합니다.');
-      response.data.result.results = [];
+    // result가 배열인 경우 처리 (Cloudflare API 응답 구조)
+    if (Array.isArray(response.data.result)) {
+      console.log('API 응답의 result가 배열입니다. 처리합니다.');
+      
+      // 배열의 첫 번째 요소 사용
+      if (response.data.result.length > 0) {
+        const firstResult = response.data.result[0];
+        
+        // results 속성이 없는 경우 추가
+        if (!firstResult.results) {
+          console.log('API 응답에 results 배열이 없습니다. 빈 배열을 추가합니다.');
+          firstResult.results = [];
+        }
+        
+        console.log('Query results:', firstResult.results);
+        return firstResult;
+      }
     }
     
-    console.log('Query results:', response.data.result.results);
-    return response.data.result;
+    // 다른 응답 구조인 경우 처리
+    console.log('예상하지 못한 API 응답 구조입니다. 빈 결과를 반환합니다.');
+    console.log('Unexpected response structure:', response.data.result);
+    return { results: [] };
   } catch (error: any) {
     console.error('D1 쿼리 실행 오류:', error);
     console.error('Error details:', error.message);
