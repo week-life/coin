@@ -205,7 +205,6 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       rsiChartRef.current.resetZoom();
     }
   };
-
   // 캔들 데이터 조회
   const fetchCandleData = async () => {
     try {
@@ -424,7 +423,6 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       datasets
     };
   };
-
   // MACD 차트 데이터 준비
   const getMACDChartData = () => {
     if (!data || data.length === 0) {
@@ -646,7 +644,6 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       }
     };
   };
-
   // 볼륨 차트 옵션
   const getVolumeChartOptions = () => {
     return {
@@ -913,6 +910,10 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         setTimeout(() => handleZoom({ chart: chartElement }), 0);
       });
       
+      // 드래그 핸들러 정의
+      const handleDrag = () => {
+        // 드래그 중에는 빈 함수
+      };
       chartElement.canvas.addEventListener('mousedown', () => {
         chartElement.canvas.addEventListener('mousemove', handleDrag);
       });
@@ -926,10 +927,6 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         chartElement.canvas.removeEventListener('mousemove', handleDrag);
       });
     }
-    
-    const handleDrag = () => {
-      // 드래그 중에는 빈 함수
-    };
     
     return () => {
       // 클린업 함수
@@ -987,56 +984,55 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
               options={priceChartOptions}
               ref={(ref) => {
                 if (ref) {
-                  priceChartRef.current = ref.chartInstance;
+                  priceChartRef.current = ref;
                 }
               }}
             />
           </div>
           
           {/* 거래량 차트 영역 */}
-{indicators.includes('volume') && (
-  <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
-    <Bar 
-      data={getVolumeChartData()} 
-      options={getVolumeChartOptions()}
-      ref={(ref) => {
-        if (ref) {
-          volumeChartRef.current = ref;
-        }
-      }}
-    />
-  </div>
-)}
+          {indicators.includes('volume') && (
+            <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
+              <Bar 
+                data={getVolumeChartData()} 
+                options={getVolumeChartOptions()}
+                ref={(ref) => {
+                  if (ref) {
+                    volumeChartRef.current = ref;
+                  }
+                }}
+              />
+            </div>
+          )}
 
-{/* MACD 차트 영역 */}
-{indicators.includes('macd') && (
-  <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
-    <Line 
-      data={getMACDChartData()} 
-      options={getMACDChartOptions()}
-      ref={(ref) => {
-        if (ref) {
-          macdChartRef.current = ref;
-        }
-      }}
-    />
-  </div>
-)}
-
-{/* RSI 차트 영역 */}
-{indicators.includes('rsi') && (
-  <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
-    <Line 
-      data={getRSIChartData()} 
-      options={getRSIChartOptions()}
-      ref={(ref) => {
-        if (ref) {
-          rsiChartRef.current = ref;
-        }
-      }}
-    />
-  </div>
-)}
+          {/* MACD 차트 영역 */}
+          {indicators.includes('macd') && (
+            <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
+              <Line 
+                data={getMACDChartData()} 
+                options={getMACDChartOptions()}
+                ref={(ref) => {
+                  if (ref) {
+                    macdChartRef.current = ref;
+                  }
+                }}
+              />
+            </div>
+          )}
+          {/* RSI 차트 영역 */}
+          {indicators.includes('rsi') && (
+            <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
+              <Line 
+                data={getRSIChartData()} 
+                options={getRSIChartOptions()}
+                ref={(ref) => {
+                  if (ref) {
+                    rsiChartRef.current = ref;
+                  }
+                }}
+              />
+            </div>
+          )}
         </div>
       );
     } catch (err) {
@@ -1176,3 +1172,4 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     </div>
   );
 }
+  
