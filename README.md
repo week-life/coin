@@ -52,7 +52,13 @@ npm run dev
 2. Wrangler CLI 설치: `npm install -g wrangler`
 3. Wrangler 로그인: `wrangler login`
 4. D1 데이터베이스 생성: `wrangler d1 create coin_trading_data`
-5. 생성된 데이터베이스 ID를 `.env.local` 파일에 설정
+5. 스키마 적용: `wrangler d1 execute coin_trading_data --file=./schema.sql`
+6. 생성된 데이터베이스 ID를 `wrangler.toml` 파일과 `.env.local` 파일에 설정
+
+## MCP 서버 설정
+
+1. `.mcp/settings.json` 파일에서 API 토큰과 계정 ID를 설정
+2. MCP 서버를 통해 Cloudflare D1 데이터베이스에 접근
 
 ## 배포
 
@@ -62,3 +68,8 @@ Vercel을 통해 프론트엔드 배포:
 npm run build
 vercel --prod
 ```
+
+## 주의사항
+
+- React 18과 관련 라이브러리 호환성 문제로 최신 버전의 패키지를 사용합니다.
+- Cloudflare Worker와 D1을 같이 사용하기 위해 MCP와 Wrangler 설정이 필요합니다.
