@@ -295,9 +295,9 @@ export async function savePriceHistory(priceData: {
       
       return { inserted: true };
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('가격 히스토리 저장 오류:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error.message || '알 수 없는 오류' };
   }
 }
 
