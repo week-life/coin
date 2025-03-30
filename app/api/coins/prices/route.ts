@@ -36,15 +36,15 @@ export async function GET(request: NextRequest) {
             trade_time_kst: new Date().toISOString().split('T')[1].substring(0, 8).replace(/:/g, ''),
             trade_timestamp: Date.now(),
             opening_price: data.opening_price,
-            high_price: data.max_price, // 수정: high_price -> max_price로 통일
-            low_price: data.min_price, // 수정: low_price -> min_price로 통일
-            trade_price: data.closing_price,
+            high_price: data.high_price || data.max_price, // 인터페이스에 추가된 속성 사용
+            low_price: data.low_price || data.min_price,   // 인터페이스에 추가된 속성 사용
+            trade_price: data.trade_price || data.closing_price,
             prev_closing_price: data.prev_closing_price,
             change: data.fluctate_24H > 0 ? 'RISE' : data.fluctate_24H < 0 ? 'FALL' : 'EVEN',
             change_price: Math.abs(data.fluctate_24H || 0),
             change_rate: Math.abs(data.fluctate_rate_24H || 0) / 100,
             signed_change_price: data.fluctate_24H || 0,
-            signed_change_rate: (data.fluctate_rate_24H || 0) / 100,
+            signed_change_rate: data.signed_change_rate || (data.fluctate_rate_24H || 0) / 100,
             trade_volume: data.units_traded || 0,
             acc_trade_price: data.acc_trade_value || 0,
             acc_trade_price_24h: data.acc_trade_value_24H || 0,
