@@ -24,35 +24,58 @@ api.interceptors.response.use(
   }
 );
 
+// 상세 디버깅 정보 출력
+console.log('=== 환경 변수 확인 ===');
+console.log('API_TOKEN:', API_TOKEN ? '설정됨 (작은 보안을 위해 표시하지 않음)' : '설정되지 않음');
+console.log('ACCOUNT_ID:', ACCOUNT_ID);
+console.log('DATABASE_ID:', DATABASE_ID);
+
 // D1 데이터베이스 SQL 쿼리 실행
 export async function executeD1Query(sql: string, params: any[] = []) {
   try {
     console.log('Executing D1 query:', sql, 'with params:', params);
+    console.log('API URL:', `${CLOUDFLARE_API_URL}/accounts/${ACCOUNT_ID}/d1/database/${DATABASE_ID}/query`);
+    
+    // API 토큰이 없는 경우 처리
+    if (!API_TOKEN) {
+      console.error('Cloudflare API 토큰이 없습니다. 환경 변수를 확인해주세요.');
+      return { results: [] };
+    }
     
     const response = await api.post(
       `/accounts/${ACCOUNT_ID}/d1/database/${DATABASE_ID}/query`,
       { sql, params }
     );
     
-    console.log('D1 query response:', response.data);
+    console.log('D1 query response status:', response.status);
+    console.log('D1 query response:', JSON.stringify(response.data, null, 2));
     
     if (!response.data.success) {
+      console.error('API 응답이 실패했습니다:', response.data.errors || '오류 정보 없음');
       throw new Error(`D1 쿼리 오류: ${JSON.stringify(response.data.errors)}`);
     }
     
     // result가 undefined인 경우 빈 결과 객체 반환
     if (!response.data.result) {
+      console.log('API 응답에 result가 없습니다. 빈 배열을 반환합니다.');
       return { results: [] };
     }
     
     // results 속성이 없는 경우 추가
     if (!response.data.result.results) {
+      console.log('API 응답에 results 배열이 없습니다. 빈 배열을 추가합니다.');
       response.data.result.results = [];
     }
     
+    console.log('Query results:', response.data.result.results);
     return response.data.result;
-  } catch (error) {
+  } catch (error: any) {
     console.error('D1 쿼리 실행 오류:', error);
+    console.error('Error details:', error.message);
+    if (error.response) {
+      console.error('Error response:', error.response.data);
+      console.error('Error status:', error.response.status);
+    }
     // 오류 발생 시 빈 결과 객체 반환
     return { results: [] };
   }
@@ -77,6 +100,8 @@ export async function executeD1BatchQueries(statements: { sql: string; params?: 
 
 // D1 데이터베이스 초기화 (테이블 생성)
 export async function initializeDatabase() {
+  console.log('데이터베이스 초기화 시작...');
+  
   const createCoinsTableQuery = `
     CREATE TABLE IF NOT EXISTS coins (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,10 +142,14 @@ export async function initializeDatabase() {
   
   try {
     // 테이블 생성
+    console.log('coins 테이블 생성 시도...');
     await executeD1Query(createCoinsTableQuery);
+    
+    console.log('price_history 테이블 생성 시도...');
     await executeD1Query(createPriceHistoryTableQuery);
     
     // 인덱스 생성
+    console.log('인덱스 생성 시도...');
     for (const indexQuery of createIndexQueries) {
       await executeD1Query(indexQuery);
     }
@@ -182,26 +211,39 @@ export async function toggleFavoriteCoin(symbol: string) {
 // 코인 목록 조회
 export async function getCoins(favorites_only = false) {
   try {
+    console.log('코인 목록 조회 시작...');
     let query = 'SELECT * FROM coins';
     
     if (favorites_only) {
+      console.log('즐겨찾기 필터 적용');
       query += ' WHERE is_favorite = 1';
     }
     
     query += ' ORDER BY is_favorite DESC, symbol ASC';
     
     const result = await executeD1Query(query);
+    console.log('코인 목록 조회 결과 (raw):', result);
     
     // result.results가 없는 경우 안전하게 처리
-    if (!result || !result.results) {
-      console.log('코인 목록 없음, 빈 배열 반환');
+    if (!result) {
+      console.log('코인 목록 없음 (result가 undefined), 빈 배열 반환');
       return [];
     }
     
-    console.log('코인 목록 조회 결과:', result.results);
+    if (!result.results) {
+      console.log('코인 목록 없음 (result.results가 undefined), 빈 배열 반환');
+      return [];
+    }
+    
+    console.log('코인 목록 조회 결과 (개수):', result.results.length);
+    console.log('코인 목록 첫 몇 개의 아이템:', result.results.slice(0, 3));
     return result.results;
-  } catch (error) {
+  } catch (error: any) {
     console.error('코인 목록 조회 오류:', error);
+    console.error('Error details:', error.message);
+    if (error.response) {
+      console.error('Error response:', error.response.data);
+    }
     return [];
   }
 }
