@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
             trade_time_kst: new Date().toISOString().split('T')[1].substring(0, 8).replace(/:/g, ''),
             trade_timestamp: Date.now(),
             opening_price: data.opening_price,
-            high_price: data.max_price || data.high_price,
-            low_price: data.min_price || data.low_price,
+            high_price: data.max_price, // 수정: high_price -> max_price로 통일
+            low_price: data.min_price, // 수정: low_price -> min_price로 통일
             trade_price: data.closing_price,
             prev_closing_price: data.prev_closing_price,
             change: data.fluctate_24H > 0 ? 'RISE' : data.fluctate_24H < 0 ? 'FALL' : 'EVEN',
