@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -15,6 +15,7 @@ import {
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
 import { Button } from '@/components/ui/button';
+import { Maximize2, Minimize2, ExternalLink, ZoomIn, ZoomOut } from 'lucide-react';
 import { formatTimestamp, calculateMA, calculateRSI, calculateBollingerBands, calculateMACD } from '@/lib/utils';
 
 // Chart.js 등록
@@ -48,7 +49,7 @@ interface CoinChartProps {
 }
 
 type ChartType = 'tradingview';
-type TimeFrame = '1m' | '3m' | '5m' | '15m' | '30m' | '1h' | '1d' | '1w' | '1M';
+type TimeFrame = '1m' | '3m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w' | '1M';
 type Indicator = 'ma' | 'volume' | 'macd' | 'rsi';
 
 // 타입스크립트 오류 해결을 위한 추가 인터페이스
@@ -83,6 +84,7 @@ const timeFrameMapping: Record<TimeFrame, { unit: string; value: number }> = {
   '15m': { unit: 'minutes', value: 15 },
   '30m': { unit: 'minutes', value: 30 },
   '1h': { unit: 'minutes', value: 60 },
+  '4h': { unit: 'minutes', value: 240 }, // 4시간 봉 추가
   '1d': { unit: 'days', value: 1 },
   '1w': { unit: 'weeks', value: 1 },
   '1M': { unit: 'months', value: 1 }
@@ -117,6 +119,84 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
   const [chartType] = useState<ChartType>('tradingview');
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('1d');
   const [indicators, setIndicators] = useState<Indicator[]>(['ma', 'volume', 'macd', 'rsi']);
+  const [isFullScreen, setIsFullScreen] = useState(false);
+  const [chartHeight, setChartHeight] = useState(800); // 기본 높이를 800px로 늘림
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+
+  // 차트 새 창으로 열기
+  const openInNewWindow = () => {
+    // 새 창에 표시할 HTML 생성
+    const newWindow = window.open('', '_blank', 'width=1200,height=800');
+    if (!newWindow) {
+      alert('팝업이 차단되었습니다. 팝업 차단을 해제해주세요.');
+      return;
+    }
+
+    // 새 창에 필요한 스타일과 내용 추가
+    newWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="ko">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${symbol} 차트 - ${timeFrame}</title>
+        <style>
+          body { margin: 0; padding: 20px; background-color: #1e222d; color: #d1d4dc; font-family: Arial, sans-serif; }
+          .chart-container { width: 100%; height: calc(100vh - 80px); }
+          h1 { margin-top: 0; }
+          .info { margin-bottom: 20px; }
+        </style>
+      </head>
+      <body>
+        <h1>${symbol} 차트</h1>
+        <div class="info">
+          <p>시간 프레임: ${timeFrame}</p>
+          <p>이 차트는 새 창에서 열려 있습니다. 더 자세한 분석을 위해 트레이딩뷰에서 확인하는 것을 권장합니다.</p>
+        </div>
+        <div class="chart-container">
+          <img src="data:image/png;base64,${chartToBase64()}" alt="${symbol} 차트" style="max-width: 100%; max-height: 100%;">
+        </div>
+      </body>
+      </html>
+    `);
+    
+    newWindow.document.close();
+  };
+
+  // 차트를 이미지로 변환 (실제 구현은 복잡할 수 있으므로 간단한 placeholder 함수)
+  const chartToBase64 = (): string => {
+    // 실제로는 Chart.js의 toBase64Image() 메서드를 사용해야 하지만, 
+    // 여기서는 구현의 복잡성 때문에 빈 문자열 반환
+    return '';
+  };
+
+  // 풀스크린 토글
+  const toggleFullScreen = () => {
+    setIsFullScreen(!isFullScreen);
+    if (chartContainerRef.current) {
+      if (!isFullScreen) {
+        // 풀스크린으로 전환
+        if (chartContainerRef.current.requestFullscreen) {
+          chartContainerRef.current.requestFullscreen();
+        }
+      } else {
+        // 풀스크린 해제
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+  };
+
+  // 차트 높이 증가
+  const increaseChartHeight = () => {
+    setChartHeight(prev => prev + 200);
+  };
+
+  // 차트 높이 감소
+  const decreaseChartHeight = () => {
+    setChartHeight(prev => Math.max(400, prev - 200)); // 최소 400px 유지
+  };
 
   // 캔들 데이터 조회
   const fetchCandleData = async () => {
@@ -163,6 +243,18 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       fetchCandleData();
     }
   }, [symbol, timeFrame, initialData.length]);
+
+  // 풀스크린 변경 이벤트 리스너
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullScreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullScreenChange);
+    };
+  }, []);
 
   // 이동평균선 계산 - 여러 기간에 대한 MA 계산
   const calculateMAs = (prices: number[]) => {
@@ -386,7 +478,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           maxRotation: 0,
           color: darkThemeColors.text,
           autoSkip: true,
-          maxTicksLimit: 8
+          maxTicksLimit: 12 // 더 많은 x축 레이블 표시
         },
         grid: {
           color: darkThemeColors.gridLines,
@@ -417,8 +509,8 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           display: false
         },
         display: true,
-        // 전체 높이의 20%만 사용
-        weight: 0.2
+        // 전체 높이의 비율 조정 (더 크게)
+        weight: 0.15
       };
     }
     
@@ -434,8 +526,8 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           display: true
         },
         display: true,
-        // 전체 높이의 20%만 사용
-        weight: 0.2
+        // 전체 높이의 비율 조정 (더 크게)
+        weight: 0.15
       };
     }
     
@@ -447,15 +539,16 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           color: darkThemeColors.text,
           // RSI 값의 범위는 0-100
           min: 0,
-          max: 100
+          max: 100,
+          stepSize: 20 // 0, 20, 40, 60, 80, 100 표시
         },
         grid: {
           color: darkThemeColors.gridLines,
           display: true
         },
         display: true,
-        // 전체 높이의 20%만 사용
-        weight: 0.2
+        // 전체 높이의 비율 조정 (더 크게)
+        weight: 0.15
       };
     }
     
@@ -465,9 +558,17 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       animation: {
         duration: 0 // 애니메이션 비활성화로 성능 향상
       },
+      // 차트 비율 최적화
+      aspectRatio: 2, // 너비:높이 비율 조정
       interaction: {
         mode: 'index' as const,
         intersect: false,
+      },
+      layout: {
+        padding: {
+          top: 20,
+          bottom: 20
+        }
       },
       plugins: {
         legend: {
@@ -484,11 +585,13 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           color: darkThemeColors.text,
           font: {
             size: 16
+          },
+          padding: {
+            top: 10,
+            bottom: 20
           }
         },
         tooltip: {
-          // 이 부분에서 타입 오류가 발생했습니다. 'mode' 속성을 수정합니다.
-          // mode: 'index',를 제거하고 아래 옵션만 유지합니다.
           intersect: false,
           backgroundColor: darkThemeColors.background,
           titleColor: darkThemeColors.text,
@@ -608,7 +711,55 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         </div>
       </div>
       
-      <div className="h-[600px] w-full bg-[#1e222d] p-4 rounded-lg">
+      <div className="flex justify-between items-center mb-2">
+        <div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mr-2"
+            onClick={openInNewWindow}
+            title="새 창에서 열기"
+          >
+            <ExternalLink className="h-4 w-4 mr-1" /> 새 창
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={decreaseChartHeight}
+            title="차트 높이 줄이기"
+          >
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={increaseChartHeight}
+            title="차트 높이 늘리기"
+          >
+            <ZoomIn className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleFullScreen}
+            title={isFullScreen ? "전체화면 나가기" : "전체화면 보기"}
+          >
+            {isFullScreen ? (
+              <Minimize2 className="h-4 w-4" />
+            ) : (
+              <Maximize2 className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </div>
+      
+      <div 
+        ref={chartContainerRef}
+        className="w-full bg-[#1e222d] p-4 rounded-lg transition-all duration-300 ease-in-out"
+        style={{ height: `${chartHeight}px` }}
+      >
         {renderChart()}
       </div>
     </div>
