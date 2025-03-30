@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTicker, getDayCandles } from '@/lib/upbit-api';
+import { getTicker, getDayCandles } from '@/lib/bithumb-api';
 
 export async function GET(request: NextRequest, {
   params,
@@ -16,17 +16,14 @@ export async function GET(request: NextRequest, {
       );
     }
     
-    // 업비트 형식으로 변환 (BTC -> KRW-BTC)
-    const market = `KRW-${symbol.toUpperCase()}`;
+    console.log('개별 코인 조회:', symbol);
     
     // 현재가 조회
-    const tickerData = await getTicker(market);
+    const tickerData = await getTicker(symbol);
     let priceData = null;
     
-    if (Array.isArray(tickerData) && tickerData.length > 0 && tickerData[0] && 'market' in tickerData[0]) {
+    if (Array.isArray(tickerData) && tickerData.length > 0) {
       priceData = tickerData[0];
-    } else if (tickerData && typeof tickerData === 'object' && 'market' in tickerData) {
-      priceData = tickerData;
     }
     
     if (!priceData) {
@@ -37,7 +34,7 @@ export async function GET(request: NextRequest, {
     }
     
     // 캠들 데이터 조회 (최근 14일)
-    const candleData = await getDayCandles(market, 14);
+    const candleData = await getDayCandles(symbol, 14);
     
     return NextResponse.json({
       current: priceData,
