@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { toggleFavoriteCoin } from '@/lib/cloudflare-api';
+import { toggleFavoriteCoin, getCoinBySymbol } from '@/lib/cloudflare-api';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,9 +13,26 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const result = await toggleFavoriteCoin(body.symbol);
+    console.log(`즐겨찾기 토글 요청: ${body.symbol}`);
     
-    return NextResponse.json(result, { status: 200 });
+    // 토글 전 현재 상태 확인
+    const beforeCoin = await getCoinBySymbol(body.symbol);
+    console.log('토글 전 코인 상태:', beforeCoin);
+    
+    // 즐겨찾기 토글 실행
+    const result = await toggleFavoriteCoin(body.symbol);
+    console.log('토글 결과:', result);
+    
+    // 토글 후 코인 정보 확인
+    const afterCoin = await getCoinBySymbol(body.symbol);
+    console.log('토글 후 코인 상태:', afterCoin);
+    
+    // 변경된 코인 정보 반환
+    return NextResponse.json({ 
+      success: true, 
+      coin: afterCoin,
+      is_favorite: afterCoin?.is_favorite || false
+    }, { status: 200 });
   } catch (error) {
     console.error('즐겨찾기 토글 오류:', error);
     return NextResponse.json(
