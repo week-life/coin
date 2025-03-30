@@ -1,22 +1,3 @@
-  // 차트 렌더링
-  const renderCharts = () => {
-    if (loading) {
-      return (
-        <div className="flex justify-center items-center h-full">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-        </div>
-      );
-    }
-
-    if (error) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full space-y-4">
-          <p className="text-red-500">{error}</p>
-          <Button onClick={fetchCandleData}>다시 시도</Button>
-        </div>
-      );
-    }
-
     if (!data.length) {
       return (
         <div className="flex justify-center items-center h-full">
@@ -37,27 +18,59 @@
         <div className="flex flex-col w-full space-y-2">
           {/* 메인 가격 차트 영역 - 더 큰 높이 할당 */}
           <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.6)}px` }}>
-            <Line data={priceChartData} options={priceChartOptions} />
+            <Line 
+              data={priceChartData} 
+              options={priceChartOptions} 
+              ref={(ref) => {
+                if (ref) {
+                  priceChartRef.current = ref.chartInstance;
+                }
+              }}
+            />
           </div>
           
           {/* 거래량 차트 영역 */}
           {indicators.includes('volume') && (
             <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
-              <Bar data={getVolumeChartData()} options={getVolumeChartOptions()} />
+              <Bar 
+                data={getVolumeChartData()} 
+                options={getVolumeChartOptions()}
+                ref={(ref) => {
+                  if (ref) {
+                    volumeChartRef.current = ref.chartInstance;
+                  }
+                }}
+              />
             </div>
           )}
           
           {/* MACD 차트 영역 */}
           {indicators.includes('macd') && (
             <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
-              <Line data={getMACDChartData()} options={getMACDChartOptions()} />
+              <Line 
+                data={getMACDChartData()} 
+                options={getMACDChartOptions()}
+                ref={(ref) => {
+                  if (ref) {
+                    macdChartRef.current = ref.chartInstance;
+                  }
+                }}
+              />
             </div>
           )}
           
           {/* RSI 차트 영역 */}
           {indicators.includes('rsi') && (
             <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.13)}px` }}>
-              <Line data={getRSIChartData()} options={getRSIChartOptions()} />
+              <Line 
+                data={getRSIChartData()} 
+                options={getRSIChartOptions()}
+                ref={(ref) => {
+                  if (ref) {
+                    rsiChartRef.current = ref.chartInstance;
+                  }
+                }}
+              />
             </div>
           )}
         </div>
@@ -143,6 +156,14 @@
           >
             <ExternalLink className="h-4 w-4 mr-1" /> 새 창
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={resetZoom}
+            title="차트 초기화"
+          >
+            <RefreshCw className="h-4 w-4 mr-1" /> 초기화
+          </Button>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -174,6 +195,11 @@
             )}
           </Button>
         </div>
+      </div>
+      
+      <div className="p-2 bg-[#1e222d] rounded-md mb-2 text-white text-sm flex items-center">
+        <MoveHorizontal className="h-4 w-4 mr-2" />
+        마우스로 드래그하여 차트를 좌우로 이동하거나 휠을 사용하여 확대/축소할 수 있습니다.
       </div>
       
       <div 
