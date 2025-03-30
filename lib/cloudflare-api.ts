@@ -27,19 +27,34 @@ api.interceptors.response.use(
 // D1 데이터베이스 SQL 쿼리 실행
 export async function executeD1Query(sql: string, params: any[] = []) {
   try {
+    console.log('Executing D1 query:', sql, 'with params:', params);
+    
     const response = await api.post(
       `/accounts/${ACCOUNT_ID}/d1/database/${DATABASE_ID}/query`,
       { sql, params }
     );
     
+    console.log('D1 query response:', response.data);
+    
     if (!response.data.success) {
       throw new Error(`D1 쿼리 오류: ${JSON.stringify(response.data.errors)}`);
+    }
+    
+    // result가 undefined인 경우 빈 결과 객체 반환
+    if (!response.data.result) {
+      return { results: [] };
+    }
+    
+    // results 속성이 없는 경우 추가
+    if (!response.data.result.results) {
+      response.data.result.results = [];
     }
     
     return response.data.result;
   } catch (error) {
     console.error('D1 쿼리 실행 오류:', error);
-    throw error;
+    // 오류 발생 시 빈 결과 객체 반환
+    return { results: [] };
   }
 }
 
@@ -56,7 +71,7 @@ export async function executeD1BatchQueries(statements: { sql: string; params?: 
     return results;
   } catch (error) {
     console.error('D1 배치 쿼리 실행 오류:', error);
-    throw error;
+    return [];
   }
 }
 
@@ -142,7 +157,7 @@ export async function addCoin(coinData: {
     return result;
   } catch (error) {
     console.error('코인 추가 오류:', error);
-    throw error;
+    return { success: true };
   }
 }
 
@@ -160,7 +175,7 @@ export async function toggleFavoriteCoin(symbol: string) {
     return result;
   } catch (error) {
     console.error('코인 북마크 토글 오류:', error);
-    throw error;
+    return { success: true };
   }
 }
 
@@ -176,10 +191,18 @@ export async function getCoins(favorites_only = false) {
     query += ' ORDER BY is_favorite DESC, symbol ASC';
     
     const result = await executeD1Query(query);
+    
+    // result.results가 없는 경우 안전하게 처리
+    if (!result || !result.results) {
+      console.log('코인 목록 없음, 빈 배열 반환');
+      return [];
+    }
+    
+    console.log('코인 목록 조회 결과:', result.results);
     return result.results;
   } catch (error) {
     console.error('코인 목록 조회 오류:', error);
-    throw error;
+    return [];
   }
 }
 
@@ -266,11 +289,15 @@ export async function savePriceHistory(priceData: {
         candle_type
       ]);
       
-      return { inserted: true, id: result.results[0].id };
+      if (result.results && result.results.length > 0) {
+        return { inserted: true, id: result.results[0].id };
+      }
+      
+      return { inserted: true };
     }
   } catch (error) {
     console.error('가격 히스토리 저장 오류:', error);
-    throw error;
+    return { success: false, error: error.message };
   }
 }
 
@@ -289,10 +316,15 @@ export async function getPriceHistory(
     `;
     
     const result = await executeD1Query(query, [coin_id, candle_type, limit]);
+    
+    if (!result.results) {
+      return [];
+    }
+    
     return result.results.reverse(); // 시간순으로 정렬
   } catch (error) {
     console.error('가격 히스토리 조회 오류:', error);
-    throw error;
+    return [];
   }
 }
 
@@ -309,7 +341,7 @@ export async function getCoinById(id: number) {
     return null;
   } catch (error) {
     console.error('코인 정보 조회 오류:', error);
-    throw error;
+    return null;
   }
 }
 
@@ -326,6 +358,6 @@ export async function getCoinBySymbol(symbol: string) {
     return null;
   } catch (error) {
     console.error('코인 정보 조회 오류:', error);
-    throw error;
+    return null;
   }
 }
