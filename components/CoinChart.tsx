@@ -47,8 +47,9 @@ interface CoinChartProps {
   initialData?: CandleData[];
 }
 
-type ChartType = 'price' | 'volume' | 'technicals';
+type ChartType = 'tradingview';
 type TimeFrame = '1m' | '3m' | '5m' | '15m' | '30m' | '1h' | '1d' | '1w' | '1M';
+type Indicator = 'ma' | 'volume' | 'macd' | 'rsi';
 
 // 타입스크립트 오류 해결을 위한 추가 인터페이스
 interface LineDataset {
@@ -61,6 +62,8 @@ interface LineDataset {
   pointRadius?: number;
   yAxisID?: string;
   borderDash?: number[];
+  fill?: boolean;
+  order?: number;
 }
 
 interface BarDataset {
@@ -69,6 +72,8 @@ interface BarDataset {
   backgroundColor: string | string[];
   borderColor?: string | string[];
   borderWidth?: number;
+  yAxisID?: string;
+  order?: number;
 }
 
 const timeFrameMapping: Record<TimeFrame, { unit: string; value: number }> = {
@@ -83,14 +88,35 @@ const timeFrameMapping: Record<TimeFrame, { unit: string; value: number }> = {
   '1M': { unit: 'months', value: 1 }
 };
 
+// 트레이딩뷰 스타일 색상
+const darkThemeColors = {
+  background: '#1e222d',
+  gridLines: '#363c4e',
+  text: '#d1d4dc',
+  priceUp: '#26a69a',
+  priceDown: '#ef5350',
+  ma7: '#f5c878',
+  ma14: '#ff9eb4',
+  ma30: '#67b7dc',
+  ma60: '#5fbeaa',
+  ma90: '#8067dc',
+  ma120: '#2196f3',
+  volume: '#5d6683',
+  volumeUp: '#26a69a',
+  volumeDown: '#ef5350',
+  macd: '#2196f3',
+  signal: '#ff9800',
+  histogram: '#4caf50',
+  rsi: '#ba68c8'
+};
+
 export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) {
   const [data, setData] = useState<CandleData[]>(initialData);
   const [loading, setLoading] = useState<boolean>(initialData.length === 0);
   const [error, setError] = useState<string | null>(null);
-  const [chartType, setChartType] = useState<ChartType>('price');
+  const [chartType] = useState<ChartType>('tradingview');
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('1d');
-  const [showMA, setShowMA] = useState<boolean>(true);
-  const [showBB, setShowBB] = useState<boolean>(false);
+  const [indicators, setIndicators] = useState<Indicator[]>(['ma', 'volume', 'macd', 'rsi']);
 
   // 캔들 데이터 조회
   const fetchCandleData = async () => {
@@ -138,8 +164,20 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     }
   }, [symbol, timeFrame, initialData.length]);
 
-  // 가격 차트 데이터
-  const getPriceChartData = () => {
+  // 이동평균선 계산 - 여러 기간에 대한 MA 계산
+  const calculateMAs = (prices: number[]) => {
+    return {
+      ma7: calculateMA(prices, 7),
+      ma14: calculateMA(prices, 14),
+      ma30: calculateMA(prices, 30),
+      ma60: calculateMA(prices, 60),
+      ma90: calculateMA(prices, 90),
+      ma120: calculateMA(prices, 120)
+    };
+  };
+
+  // 트레이딩뷰 스타일 차트 데이터
+  const getTradingViewChartData = () => {
     if (!data.length) {
       console.log('차트 데이터가 없습니다.');
       return { labels: [], datasets: [] };
@@ -148,14 +186,9 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
     console.log('정렬된 데이터 개수:', sortedData.length);
     
-    if (sortedData.length > 0) {
-      console.log('정렬된 첫 번째 데이터:', sortedData[0]);
-      console.log('정렬된 마지막 데이터:', sortedData[sortedData.length - 1]);
-    }
-    
     const labels = sortedData.map(candle => formatTimestamp(candle.timestamp));
     
-    // 가격 데이터 추출 (여러 필드 중 하나 선택)
+    // 가격 데이터 추출
     const prices = sortedData.map(candle => {
       const price = candle.trade_price || candle.closing_price || 0;
       if (!price || isNaN(price)) {
@@ -165,223 +198,264 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       return price;
     });
     
-    console.log('차트 라벨 개수:', labels.length);
-    console.log('가격 데이터 개수:', prices.length);
-    console.log('가격 범위 - 최소:', Math.min(...prices), '최대:', Math.max(...prices));
-    
-    const datasets: LineDataset[] = [
-      {
-        label: '가격',
-        data: prices,
-        borderColor: 'rgb(53, 162, 235)',
-        backgroundColor: 'rgba(53, 162, 235, 0.5)',
-        tension: 0.1,
-        pointRadius: 1
-      }
-    ];
-    
-    // 이동평균선 추가
-    if (showMA) {
-      const ma5 = calculateMA(prices, 5);
-      const ma20 = calculateMA(prices, 20);
-      
-      datasets.push(
-        {
-          label: 'MA5',
-          data: ma5,
-          borderColor: 'rgba(255, 99, 132, 1)',
-          borderWidth: 1.5,
-          pointRadius: 0,
-          tension: 0.1,
-          backgroundColor: 'rgba(255, 99, 132, 0)'
-        },
-        {
-          label: 'MA20',
-          data: ma20,
-          borderColor: 'rgba(75, 192, 192, 1)',
-          borderWidth: 1.5,
-          pointRadius: 0,
-          tension: 0.1,
-          backgroundColor: 'rgba(75, 192, 192, 0)'
-        }
-      );
-    }
-    
-    // 볼린저 밴드 추가
-    if (showBB) {
-      const { upper, middle, lower } = calculateBollingerBands(prices);
-      
-      datasets.push(
-        {
-          label: '볼린저 상단',
-          data: upper,
-          borderColor: 'rgba(255, 159, 64, 1)',
-          borderWidth: 1,
-          pointRadius: 0,
-          borderDash: [5, 5],
-          tension: 0.1,
-          backgroundColor: 'rgba(255, 159, 64, 0)'
-        },
-        {
-          label: '볼린저 중단',
-          data: middle,
-          borderColor: 'rgba(255, 159, 64, 0.5)',
-          borderWidth: 1,
-          pointRadius: 0,
-          tension: 0.1,
-          backgroundColor: 'rgba(255, 159, 64, 0)'
-        },
-        {
-          label: '볼린저 하단',
-          data: lower,
-          borderColor: 'rgba(255, 159, 64, 1)',
-          borderWidth: 1,
-          pointRadius: 0,
-          borderDash: [5, 5],
-          tension: 0.1,
-          backgroundColor: 'rgba(255, 159, 64, 0)'
-        }
-      );
-    }
-    
-    return { labels, datasets };
-  };
-
-  // 거래량 차트 데이터
-  const getVolumeChartData = () => {
-    if (!data.length) return { labels: [], datasets: [] };
-    
-    const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
-    
-    const labels = sortedData.map(candle => formatTimestamp(candle.timestamp));
     const volumes = sortedData.map(candle => candle.candle_acc_trade_volume || candle.volume || 0);
     
-    console.log('거래량 데이터 개수:', volumes.length);
-    console.log('거래량 범위 - 최소:', Math.min(...volumes), '최대:', Math.max(...volumes));
-    
-    // 색상 계산 (상승/하락 구분)
-    const colors = sortedData.map((candle, index, arr) => {
-      if (index === 0) return 'rgba(53, 162, 235, 0.5)';
+    // 가격 변화에 따른 색상 계산
+    const candleColors = sortedData.map((candle, index, arr) => {
+      if (index === 0) return darkThemeColors.priceUp;
       const prevCandle = arr[index - 1];
       const currentPrice = candle.trade_price || candle.closing_price || 0;
       const prevPrice = prevCandle.trade_price || prevCandle.closing_price || 0;
       return currentPrice >= prevPrice
-        ? 'rgba(75, 192, 192, 0.5)' // 상승 또는 유지 (초록)
-        : 'rgba(255, 99, 132, 0.5)'; // 하락 (빨강)
+        ? darkThemeColors.priceUp // 상승
+        : darkThemeColors.priceDown; // 하락
     });
     
-    const borderColors = colors.map(color => color.replace('0.5', '1'));
-    
-    const datasets: BarDataset[] = [
+    // 트레이딩뷰 스타일 데이터셋 구성
+    const datasets: (LineDataset | BarDataset)[] = [
       {
+        label: '가격',
+        data: prices,
+        borderColor: '#5283ff',
+        backgroundColor: 'rgba(82, 131, 255, 0.1)',
+        tension: 0.1,
+        pointRadius: 0,
+        borderWidth: 2,
+        yAxisID: 'y',
+        order: 0
+      }
+    ];
+    
+    // 이동평균선 추가
+    if (indicators.includes('ma')) {
+      const { ma7, ma14, ma30, ma60, ma90, ma120 } = calculateMAs(prices);
+      
+      datasets.push(
+        {
+          label: 'MA7',
+          data: ma7,
+          borderColor: darkThemeColors.ma7,
+          backgroundColor: 'transparent',
+          tension: 0.1,
+          borderWidth: 1,
+          pointRadius: 0,
+          yAxisID: 'y',
+          order: 0
+        },
+        {
+          label: 'MA14',
+          data: ma14,
+          borderColor: darkThemeColors.ma14,
+          backgroundColor: 'transparent',
+          tension: 0.1,
+          borderWidth: 1,
+          pointRadius: 0,
+          yAxisID: 'y',
+          order: 0
+        },
+        {
+          label: 'MA30',
+          data: ma30,
+          borderColor: darkThemeColors.ma30,
+          backgroundColor: 'transparent',
+          tension: 0.1,
+          borderWidth: 1,
+          pointRadius: 0,
+          yAxisID: 'y',
+          order: 0
+        },
+        {
+          label: 'MA60',
+          data: ma60,
+          borderColor: darkThemeColors.ma60,
+          backgroundColor: 'transparent',
+          tension: 0.1,
+          borderWidth: 1,
+          pointRadius: 0,
+          yAxisID: 'y',
+          order: 0
+        },
+        {
+          label: 'MA120',
+          data: ma120,
+          borderColor: darkThemeColors.ma120,
+          backgroundColor: 'transparent',
+          tension: 0.1,
+          borderWidth: 1,
+          pointRadius: 0,
+          yAxisID: 'y',
+          order: 0
+        }
+      );
+    }
+    
+    // 거래량 추가
+    if (indicators.includes('volume')) {
+      const volumeColors = sortedData.map((candle, index, arr) => {
+        if (index === 0) return darkThemeColors.volumeUp;
+        const prevCandle = arr[index - 1];
+        const currentPrice = candle.trade_price || candle.closing_price || 0;
+        const prevPrice = prevCandle.trade_price || prevCandle.closing_price || 0;
+        return currentPrice >= prevPrice
+          ? darkThemeColors.volumeUp // 상승
+          : darkThemeColors.volumeDown; // 하락
+      });
+      
+      datasets.push({
         label: '거래량',
         data: volumes,
-        backgroundColor: colors,
-        borderColor: borderColors,
-        borderWidth: 1
-      }
-    ];
+        backgroundColor: volumeColors,
+        borderColor: 'transparent',
+        borderWidth: 0,
+        yAxisID: 'volume',
+        order: 1
+      });
+    }
     
-    return { labels, datasets };
-  };
-
-  // 기술적 지표 차트 데이터
-  const getTechnicalChartData = () => {
-    if (!data.length) return { labels: [], datasets: [] };
+    // MACD 추가
+    if (indicators.includes('macd')) {
+      const { macd, signal, histogram } = calculateMACD(prices, 12, 26, 9);
+      
+      datasets.push(
+        {
+          label: 'MACD',
+          data: macd,
+          borderColor: darkThemeColors.macd,
+          backgroundColor: 'transparent',
+          tension: 0.1,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          yAxisID: 'macd',
+          order: 2
+        },
+        {
+          label: 'Signal',
+          data: signal,
+          borderColor: darkThemeColors.signal,
+          backgroundColor: 'transparent',
+          tension: 0.1,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          yAxisID: 'macd',
+          order: 2
+        }
+      );
+      
+      // 히스토그램을 막대 그래프로 추가
+      const histogramColors = histogram.map(value => 
+        value >= 0 ? darkThemeColors.priceUp : darkThemeColors.priceDown
+      );
+      
+      datasets.push({
+        label: 'Histogram',
+        data: histogram,
+        backgroundColor: histogramColors,
+        borderColor: 'transparent',
+        borderWidth: 0,
+        yAxisID: 'macd',
+        order: 3
+      });
+    }
     
-    const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
-    
-    const labels = sortedData.map(candle => formatTimestamp(candle.timestamp));
-    const prices = sortedData.map(candle => candle.trade_price || candle.closing_price || 0);
-    
-    // RSI 계산
-    const rsiValues = calculateRSI(prices);
-    
-    // MACD 계산
-    const { macd, signal, histogram } = calculateMACD(prices);
-    
-    console.log('RSI 데이터 개수:', rsiValues.length);
-    console.log('MACD 데이터 개수:', macd.length);
-    
-    const datasets: LineDataset[] = [
-      {
+    // RSI 추가
+    if (indicators.includes('rsi')) {
+      const rsiValues = calculateRSI(prices, 14);
+      
+      datasets.push({
         label: 'RSI',
         data: rsiValues,
-        borderColor: 'rgb(255, 99, 132)',
-        backgroundColor: 'rgba(255, 99, 132, 0.5)',
-        yAxisID: 'y',
-        tension: 0.1
-      },
-      {
-        label: 'MACD',
-        data: macd,
-        borderColor: 'rgb(53, 162, 235)',
-        backgroundColor: 'rgba(53, 162, 235, 0.5)',
-        yAxisID: 'y1',
-        tension: 0.1
-      },
-      {
-        label: 'Signal',
-        data: signal,
-        borderColor: 'rgb(255, 159, 64)',
-        backgroundColor: 'rgba(255, 159, 64, 0.5)',
-        yAxisID: 'y1',
-        tension: 0.1
-      }
-    ];
+        borderColor: darkThemeColors.rsi,
+        backgroundColor: 'transparent',
+        tension: 0.1,
+        borderWidth: 1.5,
+        pointRadius: 0,
+        yAxisID: 'rsi',
+        order: 4
+      });
+    }
     
     return { labels, datasets };
   };
 
-  // 차트 옵션 설정
-  const getChartOptions = () => {
-    if (chartType === 'technicals') {
-      return {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: {
-          duration: 0 // 애니메이션 비활성화로 성능 향상
+  // 트레이딩뷰 스타일 차트 옵션
+  const getTradingViewChartOptions = () => {
+    // 표시할 축 구성
+    const scales: any = {
+      x: {
+        ticks: {
+          maxRotation: 0,
+          color: darkThemeColors.text,
+          autoSkip: true,
+          maxTicksLimit: 8
         },
-        interaction: {
-          mode: 'index' as const,
-          intersect: false,
-        },
-        scales: {
-          x: {
-            ticks: {
-              maxRotation: 45,
-              minRotation: 45,
-              autoSkip: true,
-              maxTicksLimit: 10
-            }
-          },
-          y: {
-            type: 'linear' as const,
-            display: true,
-            position: 'left' as const,
-            title: {
-              display: true,
-              text: 'RSI'
-            },
-            min: 0,
-            max: 100,
-            grid: {
-              drawOnChartArea: false
-            }
-          },
-          y1: {
-            type: 'linear' as const,
-            display: true,
-            position: 'right' as const,
-            title: {
-              display: true,
-              text: 'MACD'
-            },
-            grid: {
-              drawOnChartArea: false
-            }
-          }
+        grid: {
+          color: darkThemeColors.gridLines,
+          display: true
         }
+      },
+      y: {
+        position: 'right' as const,
+        ticks: {
+          color: darkThemeColors.text
+        },
+        grid: {
+          color: darkThemeColors.gridLines,
+          display: true
+        }
+      }
+    };
+    
+    // 거래량 축 추가
+    if (indicators.includes('volume')) {
+      scales.volume = {
+        position: 'left' as const,
+        ticks: {
+          color: darkThemeColors.text
+        },
+        grid: {
+          color: 'transparent',
+          display: false
+        },
+        display: true,
+        // 전체 높이의 20%만 사용
+        weight: 0.2
+      };
+    }
+    
+    // MACD 축 추가
+    if (indicators.includes('macd')) {
+      scales.macd = {
+        position: 'left' as const,
+        ticks: {
+          color: darkThemeColors.text
+        },
+        grid: {
+          color: darkThemeColors.gridLines,
+          display: true
+        },
+        display: true,
+        // 전체 높이의 20%만 사용
+        weight: 0.2
+      };
+    }
+    
+    // RSI 축 추가
+    if (indicators.includes('rsi')) {
+      scales.rsi = {
+        position: 'left' as const,
+        ticks: {
+          color: darkThemeColors.text,
+          // RSI 값의 범위는 0-100
+          min: 0,
+          max: 100
+        },
+        grid: {
+          color: darkThemeColors.gridLines,
+          display: true
+        },
+        display: true,
+        // 전체 높이의 20%만 사용
+        weight: 0.2
       };
     }
     
@@ -391,27 +465,38 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       animation: {
         duration: 0 // 애니메이션 비활성화로 성능 향상
       },
+      interaction: {
+        mode: 'index' as const,
+        intersect: false,
+      },
       plugins: {
         legend: {
           position: 'top' as const,
+          labels: {
+            color: darkThemeColors.text,
+            boxWidth: 12,
+            padding: 10
+          }
         },
         title: {
           display: true,
-          text: chartType === 'price' 
-            ? `${symbol} 가격 차트` 
-            : `${symbol} 거래량 차트`,
-        },
-      },
-      scales: {
-        x: {
-          ticks: {
-            maxRotation: 45,
-            minRotation: 45,
-            autoSkip: true,
-            maxTicksLimit: 10
+          text: `${symbol} - ${timeFrame}`,
+          color: darkThemeColors.text,
+          font: {
+            size: 16
           }
+        },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          backgroundColor: darkThemeColors.background,
+          titleColor: darkThemeColors.text,
+          bodyColor: darkThemeColors.text,
+          borderColor: darkThemeColors.gridLines,
+          borderWidth: 1
         }
-      }
+      },
+      scales
     };
   };
 
@@ -419,7 +504,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
   const renderChart = () => {
     if (loading) {
       return (
-        <div className="flex justify-center items-center h-64">
+        <div className="flex justify-center items-center h-full">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
         </div>
       );
@@ -427,7 +512,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
 
     if (error) {
       return (
-        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <div className="flex flex-col items-center justify-center h-full space-y-4">
           <p className="text-red-500">{error}</p>
           <Button onClick={fetchCandleData}>다시 시도</Button>
         </div>
@@ -436,36 +521,26 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
 
     if (!data.length) {
       return (
-        <div className="flex justify-center items-center h-64">
+        <div className="flex justify-center items-center h-full">
           <p className="text-gray-500">데이터가 없습니다.</p>
         </div>
       );
     }
 
     try {
-      console.log(`${chartType} 차트 렌더링 시작...`);
+      console.log('트레이딩뷰 스타일 차트 렌더링 시작...');
       
-      let chartElement = null;
-      switch (chartType) {
-        case 'price':
-          chartElement = <Line data={getPriceChartData()} options={getChartOptions()} />;
-          break;
-        case 'volume':
-          chartElement = <Bar data={getVolumeChartData()} options={getChartOptions()} />;
-          break;
-        case 'technicals':
-          chartElement = <Line data={getTechnicalChartData()} options={getChartOptions()} />;
-          break;
-        default:
-          return null;
-      }
+      // 트레이딩뷰 스타일 차트
+      // Chart.js는 여러 차트 타입을 혼합할 수 없어서 Line 차트로 통일하고 스타일링으로 구분
+      const chartData = getTradingViewChartData();
+      const chartOptions = getTradingViewChartOptions();
       
-      console.log(`${chartType} 차트 렌더링 완료`);
-      return chartElement;
+      console.log('트레이딩뷰 스타일 차트 렌더링 완료');
+      return <Line data={chartData} options={chartOptions} />;
     } catch (err) {
       console.error('차트 렌더링 오류:', err);
       return (
-        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <div className="flex flex-col items-center justify-center h-full space-y-4">
           <p className="text-red-500">차트 렌더링 중 오류가 발생했습니다.</p>
           <Button onClick={fetchCandleData}>다시 시도</Button>
         </div>
@@ -473,30 +548,48 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     }
   };
 
+  // 지표 토글 함수
+  const toggleIndicator = (indicator: Indicator) => {
+    setIndicators(prev => {
+      if (prev.includes(indicator)) {
+        return prev.filter(i => i !== indicator);
+      } else {
+        return [...prev, indicator];
+      }
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between items-center gap-2">
         <div className="flex flex-wrap gap-1">
           <Button
-            variant={chartType === 'price' ? 'default' : 'outline'}
-            onClick={() => setChartType('price')}
+            variant={indicators.includes('ma') ? 'default' : 'outline'}
+            onClick={() => toggleIndicator('ma')}
             size="sm"
           >
-            가격
+            이동평균
           </Button>
           <Button
-            variant={chartType === 'volume' ? 'default' : 'outline'}
-            onClick={() => setChartType('volume')}
+            variant={indicators.includes('volume') ? 'default' : 'outline'}
+            onClick={() => toggleIndicator('volume')}
             size="sm"
           >
             거래량
           </Button>
           <Button
-            variant={chartType === 'technicals' ? 'default' : 'outline'}
-            onClick={() => setChartType('technicals')}
+            variant={indicators.includes('macd') ? 'default' : 'outline'}
+            onClick={() => toggleIndicator('macd')}
             size="sm"
           >
-            기술적 지표
+            MACD
+          </Button>
+          <Button
+            variant={indicators.includes('rsi') ? 'default' : 'outline'}
+            onClick={() => toggleIndicator('rsi')}
+            size="sm"
+          >
+            RSI
           </Button>
         </div>
         
@@ -514,28 +607,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         </div>
       </div>
       
-      {chartType === 'price' && (
-        <div className="flex gap-2">
-          <label className="flex items-center gap-1">
-            <input
-              type="checkbox"
-              checked={showMA}
-              onChange={() => setShowMA(!showMA)}
-            />
-            이동평균선
-          </label>
-          <label className="flex items-center gap-1">
-            <input
-              type="checkbox"
-              checked={showBB}
-              onChange={() => setShowBB(!showBB)}
-            />
-            볼린저 밴드
-          </label>
-        </div>
-      )}
-      
-      <div className="h-[500px] w-full bg-white p-4 rounded-lg">
+      <div className="h-[600px] w-full bg-[#1e222d] p-4 rounded-lg">
         {renderChart()}
       </div>
     </div>
