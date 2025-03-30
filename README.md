@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 코인 트래커 - 암호화폐 시세 분석 웹사이트
 
-## Getting Started
+빗썸 API를 활용한 암호화폐 시세 분석 및 추적 웹사이트입니다. Next.js와 Cloudflare D1 데이터베이스를 사용해 구현되었습니다.
 
-First, run the development server:
+## 주요 기능
 
+- **코인 목록 조회**: 빗썸에서 거래 가능한 코인 목록 표시
+- **코인 추가**: 사용자가 관심있는 코인을 추가할 수 있음
+- **즐겨찾기**: 관심 코인을 즐겨찾기에 추가하여 빠르게 확인 가능
+- **실시간 시세**: 주기적으로 업데이트되는 코인 시세 정보
+- **차트 분석**: 분/일/주/월 단위의 캔들 차트 제공
+- **기술적 지표**: 이동평균선, RSI, MACD, 볼린저 밴드 등 기술적 지표 제공
+
+## 기술 스택
+
+- **프론트엔드**: Next.js, React, TypeScript, Chart.js
+- **데이터베이스**: Cloudflare D1 (SQLite 기반 서버리스 데이터베이스)
+- **API**: 빗썸 공개 API
+- **스타일링**: Tailwind CSS
+
+## 사용 방법
+
+1. 프로젝트 클론
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/week-life/coin.git
+cd coin
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. 의존성 설치
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. 환경 변수 설정
+`.env.local` 파일을 생성하고 필요한 환경 변수 설정:
+```
+CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
+CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
+CLOUDFLARE_D1_DATABASE_ID=your_database_id
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. 개발 서버 실행
+```bash
+npm run dev
+```
 
-## Learn More
+5. 브라우저에서 [http://localhost:3000](http://localhost:3000) 접속
 
-To learn more about Next.js, take a look at the following resources:
+## Cloudflare D1 데이터베이스 설정
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Cloudflare 계정 생성 및 로그인
+2. Wrangler CLI 설치: `npm install -g wrangler`
+3. Wrangler 로그인: `wrangler login`
+4. D1 데이터베이스 생성: `wrangler d1 create coin_trading_data`
+5. 생성된 데이터베이스 ID를 `.env.local` 파일에 설정
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 배포
 
-## Deploy on Vercel
+Vercel을 통해 프론트엔드 배포:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run build
+vercel --prod
+```
