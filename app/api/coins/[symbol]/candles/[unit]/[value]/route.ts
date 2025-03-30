@@ -24,14 +24,14 @@ export async function GET(
         // 4시간(240분) 특별 처리
         if (parseInt(value) === 240) {
           console.log('[캔들 API] 4시간 봉 처리 중...');
-          // 4시간 봉은 1시간 봉 4개를 묶어서 생성
-          const hourlyCandles = await getMinuteCandles(symbol, 60, count * 4);
+          // 4시간 봉은 30분 봉 8개를 묶어서 생성
+          const thirtyMinCandles = await getMinuteCandles(symbol, 30, count * 8);
           
-          if (hourlyCandles && hourlyCandles.length > 0) {
-            // 4시간 간격으로 데이터 그룹화
+          if (thirtyMinCandles && thirtyMinCandles.length > 0) {
+            // 4시간 간격으로 데이터 그룹화 (8개의 30분 캔들로 4시간 구성)
             const groupedCandles = [];
-            for (let i = 0; i < hourlyCandles.length; i += 4) {
-              const fourHourGroup = hourlyCandles.slice(i, i + 4);
+            for (let i = 0; i < thirtyMinCandles.length; i += 8) {
+              const fourHourGroup = thirtyMinCandles.slice(i, i + 8);
               
               if (fourHourGroup.length > 0) {
                 // 4시간 봉 생성
@@ -63,12 +63,30 @@ export async function GET(
             candleData = groupedCandles.slice(0, count);
             console.log(`[캔들 API] 4시간 봉 생성 완료: ${candleData.length}개 항목`);
           } else {
-            console.log('[캔들 API] 4시간 봉 생성 실패: 1시간 봉 데이터가 없습니다');
+            console.log('[캔들 API] 4시간 봉 생성 실패: 30분 봉 데이터가 없습니다');
             candleData = [];
           }
         } else {
           // 일반적인 분 단위 캔들 처리
-          candleData = await getMinuteCandles(symbol, parseInt(value) as any, count);
+          // 타입 확인 및 강제 변환
+          const minuteValue = parseInt(value);
+          let allowedValue: 1 | 3 | 5 | 10 | 30;
+          
+          // 지원되는 값만 허용하고 가장 가까운 값으로 매핑
+          if (minuteValue <= 1) {
+            allowedValue = 1;
+          } else if (minuteValue <= 3) {
+            allowedValue = 3;
+          } else if (minuteValue <= 5) {
+            allowedValue = 5;
+          } else if (minuteValue <= 10) {
+            allowedValue = 10;
+          } else {
+            allowedValue = 30;
+          }
+          
+          console.log(`[캔들 API] 분 단위 조정: ${minuteValue}분 → ${allowedValue}분`);
+          candleData = await getMinuteCandles(symbol, allowedValue, count);
         }
         
         candleType = 'minute';
