@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { Star, StarOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatNumber } from '@/lib/utils';
+import { createChart, ColorType } from 'lightweight-charts';
 
 interface Coin {
   id: number;
@@ -27,21 +28,33 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
   const [loading, setLoading] = useState<boolean>(initialCoins.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('');
+  const chartRef = useRef<HTMLDivElement>(null);
 
-  // 코인 목록 조회
+  // 바이낸스 API에서 코인 데이터 가져오기
   const fetchCoins = async () => {
     try {
       setLoading(true);
       console.log('코인 목록을 불러오는 중...');
-      const response = await fetch(`/api/coins${favoritesOnly ? '?favorites=true' : ''}`);
+      const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr`);
       
       if (!response.ok) {
         throw new Error('코인 목록을 불러오는데 실패했습니다.');
       }
       
       const data = await response.json();
-      console.log('코인 목록 응답:', data);
-      setCoins(data);
+      // 바이낸스 API 데이터 형식에 맞게 변환
+      const processedCoins = data.map((coin: any) => ({
+        id: Math.random(), // 바이낸스 API에 고유 ID가 없어서 랜덤 ID 생성
+        symbol: coin.symbol,
+        market: 'Binance',
+        korean_name: coin.symbol,
+        english_name: coin.symbol,
+        is_favorite: false,
+        current_price: parseFloat(coin.lastPrice),
+        change_rate: parseFloat(coin.priceChangePercent) / 100
+      }));
+
+      setCoins(processedCoins);
       setError(null);
     } catch (err) {
       setError((err as Error).message);
@@ -51,36 +64,63 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
     }
   };
 
-  // 코인 즐겨찾기 토글
-  const toggleFavorite = async (symbol: string) => {
-    try {
-      const response = await fetch('/api/coins/favorite', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+  // 코인 차트 렌더링
+  const renderChart = (symbol: string) => {
+    if (chartRef.current) {
+      // 기존 차트 초기화
+      chartRef.current.innerHTML = '';
+
+      const chart = createChart(chartRef.current, {
+        width: chartRef.current.clientWidth,
+        height: 300,
+        layout: {
+          background: { type: ColorType.Solid, color: 'white' },
+          textColor: 'black',
         },
-        body: JSON.stringify({ symbol }),
+        grid: {
+          vertLines: { color: 'rgba(197, 203, 206, 0.5)' },
+          horzLines: { color: 'rgba(197, 203, 206, 0.5)' },
+        },
+        crosshair: {
+          mode: 1,
+        },
+        rightPriceScale: {
+          borderColor: 'rgba(197, 203, 206, 0.8)',
+        },
+        timeScale: {
+          borderColor: 'rgba(197, 203, 206, 0.8)',
+        },
       });
-      
-      if (!response.ok) {
-        throw new Error('즐겨찾기 설정에 실패했습니다.');
-      }
-      
-      // 데이터를 새로 가져오는 대신 상태 업데이트
-      setCoins(prevCoins =>
-        prevCoins.map(coin =>
-          coin.symbol === symbol ? { ...coin, is_favorite: !coin.is_favorite } : coin
-        )
-      );
-      
-      // 즐겨찾기만 보기 모드에서 즐겨찾기 해제한 경우 해당 코인 제거
-      if (favoritesOnly) {
-        setCoins(prevCoins =>
-          prevCoins.filter(coin => !(coin.symbol === symbol && !coin.is_favorite))
-        );
-      }
-    } catch (err) {
-      console.error('즐겨찾기 토글 에러:', err);
+
+      // 캔들 데이터 가져오기
+      const fetchCandleData = async () => {
+        try {
+          const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=30`);
+          const data = await response.json();
+          
+          const candleSeries = chart.addCandlestickSeries({
+            upColor: 'red',
+            downColor: 'blue',
+            borderVisible: false,
+            wickUpColor: 'red',
+            wickDownColor: 'blue',
+          });
+
+          const formattedData = data.map((candle: any) => ({
+            time: parseInt(candle[0]) / 1000, // 밀리초를 초로 변환
+            open: parseFloat(candle[1]),
+            high: parseFloat(candle[2]),
+            low: parseFloat(candle[3]),
+            close: parseFloat(candle[4]),
+          }));
+
+          candleSeries.setData(formattedData);
+        } catch (error) {
+          console.error('캔들 데이터 가져오기 실패:', error);
+        }
+      };
+
+      fetchCandleData();
     }
   };
 
@@ -93,45 +133,23 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
     // 가격 정보 주기적 업데이트
     const fetchPrices = async () => {
       try {
-        // 코인이 없으면 조회하지 않음
-        if (coins.length === 0) {
-          console.log('가격 정보 업데이트: 코인이 없어 조회하지 않음');
-          return;
-        }
-        
-        const symbols = coins.map(coin => coin.symbol).join(',');
-        console.log('가격 정보 조회 요청:', symbols);
-        
-        const response = await fetch(`/api/coins/prices?symbols=${symbols}`);
-        
-        if (!response.ok) {
-          throw new Error(`가격 정보를 불러오는데 실패했습니다. 상태: ${response.status}`);
-        }
-        
+        const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr`);
         const priceData = await response.json();
-        console.log('가격 정보 응답:', priceData);
-        
-        // 디버깅을 위한 로그
-        let updateCount = 0;
         
         setCoins(prevCoins => {
           return prevCoins.map(coin => {
-            // 해당 심볼의 가격 데이터 확인
-            const coinPriceData = priceData[coin.symbol];
+            const updatedCoin = priceData.find((data: any) => data.symbol === coin.symbol);
             
-            if (coinPriceData) {
-              updateCount++;
+            if (updatedCoin) {
               return {
                 ...coin,
-                current_price: coinPriceData.trade_price || coin.current_price,
-                change_rate: coinPriceData.signed_change_rate || coin.change_rate,
+                current_price: parseFloat(updatedCoin.lastPrice),
+                change_rate: parseFloat(updatedCoin.priceChangePercent) / 100,
               };
             }
             return coin;
           });
         });
-        
-        console.log(`가격 정보 업데이트 완료: ${updateCount}개 코인 업데이트됨`);
       } catch (err) {
         console.error('가격 정보 조회 에러:', err);
       }
@@ -141,7 +159,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
     const intervalId = setInterval(fetchPrices, 30000); // 30초마다 가격 정보 업데이트
     
     return () => clearInterval(intervalId);
-  }, [initialCoins.length, coins.length]);
+  }, [initialCoins.length]);
 
   // 필터링된 코인 목록
   const filteredCoins = coins.filter(
@@ -199,82 +217,74 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
           <p className="text-gray-500">
             {filter ? `"${filter}"에 대한 검색 결과가 없습니다.` : '코인이 없습니다.'}
           </p>
-          {favoritesOnly && (
-            <p className="mt-2">
-              <Link href="/coins" className="text-blue-500 hover:underline">
-                전체 코인 목록 보기
-              </Link>
-            </p>
-          )}
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  즐겨찾기
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  코인
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  심볼
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  현재가
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  변동률
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  마켓
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredCoins.map((coin) => (
-                <tr key={coin.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button onClick={() => toggleFavorite(coin.symbol)}>
-                      {coin.is_favorite ? (
-                        <Star className="h-5 w-5 text-yellow-400" />
-                      ) : (
-                        <StarOff className="h-5 w-5 text-gray-400" />
-                      )}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Link href={`/coins/${coin.symbol}`} className="text-blue-500 hover:underline">
-                      {coin.korean_name}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{coin.symbol}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {coin.current_price ? formatNumber(coin.current_price) : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {coin.change_rate !== undefined ? (
-                      <span
-                        className={`${
-                          coin.change_rate > 0
-                            ? 'text-green-600'
-                            : coin.change_rate < 0
-                            ? 'text-red-600'
-                            : 'text-gray-500'
-                        }`}
-                      >
-                        {(coin.change_rate * 100).toFixed(2)}%
-                      </span>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{coin.market}</td>
+        <div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    즐겨찾기
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    코인
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    심볼
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    현재가
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    변동률
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    마켓
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredCoins.map((coin) => (
+                  <tr key={coin.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button>
+                        <StarOff className="h-5 w-5 text-gray-400" />
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button onClick={() => renderChart(coin.symbol)}>
+                        {coin.korean_name}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">{coin.symbol}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {coin.current_price ? formatNumber(coin.current_price) : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {coin.change_rate !== undefined ? (
+                        <span
+                          className={`${
+                            coin.change_rate > 0
+                              ? 'text-green-600'
+                              : coin.change_rate < 0
+                              ? 'text-red-600'
+                              : 'text-gray-500'
+                          }`}
+                        >
+                          {(coin.change_rate * 100).toFixed(2)}%
+                        </span>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">{coin.market}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div ref={chartRef} className="w-full h-[300px] mt-4"></div>
         </div>
       )}
     </div>
