@@ -3,6 +3,11 @@ declare module 'lightweight-charts' {
   export interface IChartApi {
     destroy(): void;
     remove?(): void;
+    addCandlestickSeries(options?: CandlestickSeriesOptions): ISeriesApi<CandlestickData>;
+  }
+
+  export interface ISeriesApi<T> {
+    setData(data: T[]): void;
   }
 
   export function createChart(
