@@ -45,7 +45,7 @@ const darkTheme = {
 export default function CoinChart({ symbol }: CoinChartProps) {
   const [timeFrame, setTimeFrame] = useState<TimeFrame>('4h');
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [chartHeight, setChartHeight] = useState(800);
+  const [chartHeight, setChartHeight] = useState(500);
   const [data, setData] = useState<CandleData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,14 +59,29 @@ export default function CoinChart({ symbol }: CoinChartProps) {
       // 하드코딩된 데이터로 임시 대체
       const mockData: CandleData[] = [
         { 
-          timestamp: 1711843200000, // 예시 타임스탬프
+          timestamp: 1711843200000, 
           opening_price: 83420.42,
           high_price: 83650.36,
           low_price: 83200.50,
           trade_price: 83456.50,
           candle_acc_trade_volume: 429298
         },
-        // 여기에 더 많은 데이터 포인트 추가
+        { 
+          timestamp: 1711929600000, 
+          opening_price: 83456.50,
+          high_price: 83900.00,
+          low_price: 83300.00,
+          trade_price: 83800.00,
+          candle_acc_trade_volume: 512345
+        },
+        { 
+          timestamp: 1712016000000, 
+          opening_price: 83800.00,
+          high_price: 84100.00,
+          low_price: 83600.00,
+          trade_price: 83900.00,
+          candle_acc_trade_volume: 398765
+        }
       ];
 
       setData(mockData);
@@ -95,7 +110,6 @@ export default function CoinChart({ symbol }: CoinChartProps) {
     }
   }, []);
 
-  // 이동평균선 계산 함수들
   const calculateMA = (data: number[], period: number): number[] => {
     const result: number[] = [];
     for (let i = 0; i < data.length; i++) {
@@ -117,24 +131,11 @@ export default function CoinChart({ symbol }: CoinChartProps) {
   useEffect(() => {
     if (!chartContainerRef.current || data.length === 0) return;
 
-    // 기존 차트 제거
     removeChart();
 
-    // 가격 데이터 준비
     const prices = data.map(d => d.trade_price);
     const timestamps = data.map(d => d.timestamp / 1000);
 
-    // 이동평균선 계산
-    const maConfigs = [
-      { period: 7, value: calculateMA(prices, 7), color: darkTheme.ma7 },
-      { period: 14, value: calculateMA(prices, 14), color: darkTheme.ma14 },
-      { period: 30, value: calculateMA(prices, 30), color: darkTheme.ma30 },
-      { period: 60, value: calculateMA(prices, 60), color: darkTheme.ma60 },
-      { period: 90, value: calculateMA(prices, 90), color: darkTheme.ma90 },
-      { period: 120, value: calculateMA(prices, 120), color: darkTheme.ma120 }
-    ];
-
-    // 차트 생성
     const chart = createChart(chartContainerRef.current, {
       width: chartContainerRef.current.clientWidth,
       height: chartHeight,
@@ -157,7 +158,6 @@ export default function CoinChart({ symbol }: CoinChartProps) {
       }
     });
 
-    // 캔들스틱 시리즈
     const candlestickSeries = chart.addCandlestickSeries({
       upColor: darkTheme.priceUp,
       downColor: darkTheme.priceDown,
@@ -176,14 +176,22 @@ export default function CoinChart({ symbol }: CoinChartProps) {
 
     candlestickSeries.setData(formattedCandleData);
 
-    // 이동평균선 시리즈 추가
-    maConfigs.forEach(({ period, value, color }) => {
+    const maConfigs = [
+      { period: 7, color: darkTheme.ma7 },
+      { period: 14, color: darkTheme.ma14 },
+      { period: 30, color: darkTheme.ma30 },
+      { period: 60, color: darkTheme.ma60 },
+      { period: 90, color: darkTheme.ma90 },
+      { period: 120, color: darkTheme.ma120 }
+    ];
+
+    maConfigs.forEach(({ period, color }) => {
       const maSeries = chart.addLineSeries({
         color: color,
         lineWidth: 2,
       });
 
-      const maData = value.map((ma, index) => ({
+      const maData = calculateMA(prices, period).map((ma, index) => ({
         time: timestamps[index],
         value: ma
       }));
@@ -235,7 +243,7 @@ export default function CoinChart({ symbol }: CoinChartProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setChartHeight(h => Math.max(400, h - 200))}
+            onClick={() => setChartHeight(h => Math.max(300, h - 100))}
             title="차트 높이 줄이기"
           >
             <ZoomOut className="h-4 w-4" />
@@ -243,7 +251,7 @@ export default function CoinChart({ symbol }: CoinChartProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setChartHeight(h => h + 200)}
+            onClick={() => setChartHeight(h => h + 100)}
             title="차트 높이 늘리기"
           >
             <ZoomIn className="h-4 w-4" />
