@@ -69,7 +69,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
 
     // 기존 차트 제거
     if (chartRef.current) {
-      chartRef.current.remove();
+      chartRef.current.destroy();
     }
 
     // 새 차트 생성
@@ -116,7 +116,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     chartRef.current = chart;
 
     return () => {
-      chart.remove();
+      chart.destroy();
     };
   }, [data, chartHeight, symbol]);
 
