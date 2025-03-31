@@ -43,7 +43,7 @@ const darkTheme = {
 };
 
 export default function CoinChart({ symbol }: CoinChartProps) {
-  const [timeFrame, setTimeFrame] = useState<TimeFrame>('1d');
+  const [timeFrame, setTimeFrame] = useState<TimeFrame>('4h');
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [chartHeight, setChartHeight] = useState(800);
   const [data, setData] = useState<CandleData[]>([]);
@@ -52,6 +52,32 @@ export default function CoinChart({ symbol }: CoinChartProps) {
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+
+  const fetchCandleData = async () => {
+    try {
+      setLoading(true);
+      // 하드코딩된 데이터로 임시 대체
+      const mockData: CandleData[] = [
+        { 
+          timestamp: 1711843200000, // 예시 타임스탬프
+          opening_price: 83420.42,
+          high_price: 83650.36,
+          low_price: 83200.50,
+          trade_price: 83456.50,
+          candle_acc_trade_volume: 429298
+        },
+        // 여기에 더 많은 데이터 포인트 추가
+      ];
+
+      setData(mockData);
+      setError(null);
+    } catch (err) {
+      setError((err as Error).message);
+      console.error('차트 데이터 조회 에러:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const removeChart = useCallback(() => {
     if (chartRef.current) {
@@ -69,27 +95,7 @@ export default function CoinChart({ symbol }: CoinChartProps) {
     }
   }, []);
 
-  const fetchCandleData = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/coins/${symbol}/candles?timeframe=${timeFrame}`);
-      
-      if (!response.ok) {
-        throw new Error('캔들 데이터를 불러오는데 실패했습니다.');
-      }
-      
-      const candleData = await response.json();
-      setData(candleData);
-      setError(null);
-    } catch (err) {
-      setError((err as Error).message);
-      console.error('차트 데이터 조회 에러:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 이동평균선 계산
+  // 이동평균선 계산 함수들
   const calculateMA = (data: number[], period: number): number[] => {
     const result: number[] = [];
     for (let i = 0; i < data.length; i++) {
@@ -104,51 +110,6 @@ export default function CoinChart({ symbol }: CoinChartProps) {
     return result;
   };
 
-  // MACD 계산
-  const calculateMACD = (prices: number[]) => {
-    const shortPeriod = 12;
-    const longPeriod = 26;
-    const signalPeriod = 9;
-
-    const shortEMA = calculateEMA(prices, shortPeriod);
-    const longEMA = calculateEMA(prices, longPeriod);
-    
-    const macd = shortEMA.map((se, i) => se - longEMA[i]);
-    const signal = calculateEMA(macd, signalPeriod);
-    const histogram = macd.map((m, i) => m - signal[i]);
-
-    return { macd, signal, histogram };
-  };
-
-  // 지수이동평균 계산
-  const calculateEMA = (prices: number[], period: number): number[] => {
-    const smoothing = 2 / (period + 1);
-    const result: number[] = [prices[0]];
-
-    for (let i = 1; i < prices.length; i++) {
-      const ema = (prices[i] - result[i - 1]) * smoothing + result[i - 1];
-      result.push(ema);
-    }
-
-    return result;
-  };
-
-  // RSI 계산
-  const calculateRSI = (prices: number[], period: number = 14) => {
-    const changes = prices.slice(1).map((price, i) => price - prices[i]);
-    const gains = changes.map(change => Math.max(change, 0));
-    const losses = changes.map(change => Math.abs(Math.min(change, 0)));
-
-    const avgGain = calculateMA(gains, period);
-    const avgLoss = calculateMA(losses, period);
-
-    return avgGain.map((gain, i) => {
-      if (i < period) return 50;
-      const rs = gain / avgLoss[i];
-      return 100 - (100 / (1 + rs));
-    });
-  };
-
   useEffect(() => {
     fetchCandleData();
   }, [symbol, timeFrame]);
@@ -161,22 +122,17 @@ export default function CoinChart({ symbol }: CoinChartProps) {
 
     // 가격 데이터 준비
     const prices = data.map(d => d.trade_price);
-    const volumes = data.map(d => d.candle_acc_trade_volume);
     const timestamps = data.map(d => d.timestamp / 1000);
 
     // 이동평균선 계산
-    const ma7 = calculateMA(prices, 7);
-    const ma14 = calculateMA(prices, 14);
-    const ma30 = calculateMA(prices, 30);
-    const ma60 = calculateMA(prices, 60);
-    const ma90 = calculateMA(prices, 90);
-    const ma120 = calculateMA(prices, 120);
-
-    // MACD 계산
-    const { macd, signal, histogram } = calculateMACD(prices);
-
-    // RSI 계산
-    const rsi = calculateRSI(prices);
+    const maConfigs = [
+      { period: 7, value: calculateMA(prices, 7), color: darkTheme.ma7 },
+      { period: 14, value: calculateMA(prices, 14), color: darkTheme.ma14 },
+      { period: 30, value: calculateMA(prices, 30), color: darkTheme.ma30 },
+      { period: 60, value: calculateMA(prices, 60), color: darkTheme.ma60 },
+      { period: 90, value: calculateMA(prices, 90), color: darkTheme.ma90 },
+      { period: 120, value: calculateMA(prices, 120), color: darkTheme.ma120 }
+    ];
 
     // 차트 생성
     const chart = createChart(chartContainerRef.current, {
@@ -210,7 +166,7 @@ export default function CoinChart({ symbol }: CoinChartProps) {
       wickDownColor: darkTheme.priceDown,
     });
 
-    const formattedCandleData: CandlestickData[] = data.map(candle => ({
+    const formattedCandleData = data.map(candle => ({
       time: candle.timestamp / 1000,
       open: candle.opening_price,
       high: candle.high_price,
@@ -220,99 +176,19 @@ export default function CoinChart({ symbol }: CoinChartProps) {
 
     candlestickSeries.setData(formattedCandleData);
 
-    // 이동평균선 시리즈
-    const maConfigs = [
-      { period: 7, color: darkTheme.ma7 },
-      { period: 14, color: darkTheme.ma14 },
-      { period: 30, color: darkTheme.ma30 },
-      { period: 60, color: darkTheme.ma60 },
-      { period: 90, color: darkTheme.ma90 },
-      { period: 120, color: darkTheme.ma120 }
-    ];
-
-    maConfigs.forEach(({ period, color }) => {
+    // 이동평균선 시리즈 추가
+    maConfigs.forEach(({ period, value, color }) => {
       const maSeries = chart.addLineSeries({
         color: color,
         lineWidth: 2,
       });
 
-      const maData = calculateMA(prices, period).map((ma, index) => ({
+      const maData = value.map((ma, index) => ({
         time: timestamps[index],
         value: ma
       }));
 
       maSeries.setData(maData);
-    });
-
-    // 거래량 시리즈
-    const volumeSeries = chart.addHistogramSeries({
-      color: darkTheme.volume,
-      priceFormat: {
-        type: 'volume',
-      },
-      priceScaleId: 'volume'
-    });
-
-    const volumeData = volumes.map((volume, index) => ({
-      time: timestamps[index],
-      value: volume,
-      color: index > 0 && prices[index] >= prices[index - 1] 
-        ? darkTheme.volumeUp 
-        : darkTheme.volumeDown
-    }));
-
-    volumeSeries.setData(volumeData);
-
-    chart.priceScale('volume').applyOptions({
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0
-      }
-    });
-
-    // MACD 시리즈
-    const macdSeries = chart.addHistogramSeries({
-      color: darkTheme.histogram,
-      priceFormat: {
-        type: 'volume',
-      },
-      priceScaleId: 'macd'
-    });
-
-    const macdData = histogram.map((h, index) => ({
-      time: timestamps[index],
-      value: h,
-      color: h >= 0 ? darkTheme.priceUp : darkTheme.priceDown
-    }));
-
-    macdSeries.setData(macdData);
-
-    chart.priceScale('macd').applyOptions({
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0
-      }
-    });
-
-    // RSI 시리즈
-    const rsiSeries = chart.addLineSeries({
-      color: darkTheme.rsi,
-      lineWidth: 2,
-      priceScaleId: 'rsi'
-    });
-
-    const rsiData = rsi.map((value, index) => ({
-      time: timestamps[index],
-      value: value
-    }));
-
-    rsiSeries.setData(rsiData);
-
-    chart.priceScale('rsi').applyOptions({
-      scaleMargins: {
-        top: 0.8,
-        bottom: 0
-      }
     });
 
     chartRef.current = chart;
@@ -322,7 +198,6 @@ export default function CoinChart({ symbol }: CoinChartProps) {
     };
   }, [data, chartHeight, symbol, removeChart]);
 
-  // 전체화면 토글
   const toggleFullScreen = () => {
     setIsFullScreen(!isFullScreen);
     if (chartContainerRef.current) {
