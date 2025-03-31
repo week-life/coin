@@ -13,7 +13,7 @@ import {
   Legend,
   Filler
 } from 'chart.js';
-import { CandlestickController, CandlestickElement } from 'chartjs-chart-financial';
+
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { Line, Bar, Chart } from 'react-chartjs-2';
 import { Button } from '@/components/ui/button';
@@ -32,8 +32,6 @@ ChartJS.register(
   Legend,
   Filler,
   zoomPlugin,
-  CandlestickController,
-  CandlestickElement
 );
 
 interface CandleData {
