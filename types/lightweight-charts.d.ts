@@ -1,25 +1,31 @@
+// 추가적인 타입 정의
 declare module 'lightweight-charts' {
-  export interface ChartOptions {
-    width?: number;
-    height?: number;
-    layout?: {
-      background?: { type: ColorType, color: string };
-      textColor?: string;
-    };
-    grid?: {
-      vertLines?: { color: string };
-      horzLines?: { color: string };
-    };
-    crosshair?: {
-      mode?: number;
-    };
-    rightPriceScale?: {
-      borderColor?: string;
-    };
-    timeScale?: {
-      borderColor?: string;
-    };
+  export interface IChartApi {
+    destroy(): void;
+    remove?(): void;
   }
+
+  export function createChart(
+    container: HTMLElement, 
+    options?: {
+      width?: number;
+      height?: number;
+      layout?: {
+        background?: { type: ColorType, color: string };
+        textColor?: string;
+      };
+      grid?: {
+        vertLines?: { color: string };
+        horzLines?: { color: string };
+      };
+      rightPriceScale?: {
+        borderColor?: string;
+      };
+      timeScale?: {
+        borderColor?: string;
+      };
+    }
+  ): IChartApi;
 
   export enum ColorType {
     Solid = 'solid'
@@ -40,14 +46,4 @@ declare module 'lightweight-charts' {
     low: number;
     close: number;
   }
-
-  export class IChartApi {
-    addCandlestickSeries(options?: CandlestickSeriesOptions): ICandlestickSeries;
-  }
-
-  export interface ICandlestickSeries {
-    setData(data: CandlestickData[]): void;
-  }
-
-  export function createChart(container: HTMLElement, options?: ChartOptions): IChartApi;
 }
