@@ -637,7 +637,6 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       scales: {
         x: {
           type: 'category' as const,
-          },
           ticks: {
             maxRotation: 0,
             color: darkThemeColors.text,
