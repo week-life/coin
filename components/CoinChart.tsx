@@ -1057,16 +1057,15 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         <div className="flex flex-col w-full space-y-2">
           {/* 메인 캔들스틱 차트 영역 - 더 큰 높이 할당 */}
           <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.6)}px` }}>
-            <Chart 
-              type="candlestick"
-              data={candlestickData} 
-              options={candlestickOptions}
-              ref={(ref) => {
-                if (ref) {
-                  priceChartRef.current = ref;
-                }
-              }}
-            />
+            <Line 
+  data={candlestickData} 
+  options={candlestickOptions}
+  ref={(ref) => {
+    if (ref) {
+      priceChartRef.current = ref;
+    }
+  }}
+/>
           </div>
           
           {/* 거래량 차트 영역 */}
