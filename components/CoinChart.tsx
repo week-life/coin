@@ -140,9 +140,14 @@ export default function CoinChart({ symbol }: CoinChartProps) {
   useEffect(() => {
     if (!chartContainerRef.current || data.length === 0) return;
 
-    // 기존 차트 제거
+    // 이전 차트 정리
     if (chartRef.current) {
-      chartRef.current.remove();
+      try {
+        chartRef.current.remove();
+      } catch (error) {
+        console.error('기존 차트 제거 중 오류:', error);
+      }
+      chartRef.current = null;
     }
 
     // 가격 데이터 준비
@@ -304,7 +309,14 @@ export default function CoinChart({ symbol }: CoinChartProps) {
     chartRef.current = chart;
 
     return () => {
-      chart.remove();
+      if (chartRef.current) {
+        try {
+          chartRef.current.remove();
+        } catch (error) {
+          console.error('차트 제거 중 오류:', error);
+        }
+        chartRef.current = null;
+      }
     };
   }, [data, chartHeight, symbol]);
 
