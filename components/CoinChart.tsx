@@ -69,7 +69,11 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
 
     // 기존 차트 제거
     if (chartRef.current) {
-      chartRef.current.destroy();
+      if (typeof chartRef.current.destroy === 'function') {
+        chartRef.current.destroy();
+      } else if (typeof chartRef.current.remove === 'function') {
+        chartRef.current.remove();
+      }
     }
 
     // 새 차트 생성
@@ -116,7 +120,13 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     chartRef.current = chart;
 
     return () => {
-      chart.destroy();
+      if (chart) {
+        if (typeof chart.destroy === 'function') {
+          chart.destroy();
+        } else if (typeof chart.remove === 'function') {
+          chart.remove();
+        }
+      }
     };
   }, [data, chartHeight, symbol]);
 
