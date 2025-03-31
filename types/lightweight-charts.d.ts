@@ -4,10 +4,50 @@ declare module 'lightweight-charts' {
     destroy(): void;
     remove?(): void;
     addCandlestickSeries(options?: CandlestickSeriesOptions): ISeriesApi<CandlestickData>;
+    addLineSeries(options?: LineSeriesOptions): ISeriesApi<LineData>;
+    addHistogramSeries(options?: HistogramSeriesOptions): ISeriesApi<HistogramData>;
+    priceScale(id: string): IPriceScaleApi;
+  }
+
+  export interface IPriceScaleApi {
+    applyOptions(options: PriceScaleOptions): void;
+  }
+
+  export interface PriceScaleOptions {
+    scaleMargins?: {
+      top?: number;
+      bottom?: number;
+    };
   }
 
   export interface ISeriesApi<T> {
     setData(data: T[]): void;
+  }
+
+  export interface LineSeriesOptions {
+    color?: string;
+    lineWidth?: number;
+    priceScaleId?: string;
+    title?: string;
+  }
+
+  export interface LineData {
+    time: number;
+    value: number;
+  }
+
+  export interface HistogramSeriesOptions {
+    color?: string;
+    priceFormat?: {
+      type: 'volume' | 'price';
+    };
+    priceScaleId?: string;
+  }
+
+  export interface HistogramData {
+    time: number;
+    value: number;
+    color?: string;
   }
 
   export function createChart(
