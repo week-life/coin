@@ -638,7 +638,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         x: {
           type: 'time' as const,
           time: {
-            unit: 'day',
+            unit: 'day' as const,
             displayFormats: {
               day: 'MM/dd'
             }
