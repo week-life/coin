@@ -636,7 +636,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       },
       scales: {
         x: {
-          type: 'time',
+          type: 'time' as const,
           time: {
             unit: 'day',
             displayFormats: {
