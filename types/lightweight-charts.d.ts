@@ -23,6 +23,9 @@ declare module 'lightweight-charts' {
         vertLines?: { color: string };
         horzLines?: { color: string };
       };
+      crosshair?: {
+        mode?: number;
+      };
       rightPriceScale?: {
         borderColor?: string;
       };
