@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createChart, ColorType, IChartApi, CandlestickData } from 'lightweight-charts';
+import { createChart, ColorType, IChartApi, CandlestickData, ISeriesApi } from 'lightweight-charts';
 import { Button } from '@/components/ui/button';
 import { Maximize2, Minimize2, ExternalLink, ZoomIn, ZoomOut, MoveHorizontal, RefreshCw } from 'lucide-react';
 
@@ -37,6 +37,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const candlestickSeriesRef = useRef<ISeriesApi<CandlestickData> | null>(null);
 
   const fetchCandleData = async () => {
     try {
@@ -118,6 +119,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     candlestickSeries.setData(formattedData);
 
     chartRef.current = chart;
+    candlestickSeriesRef.current = candlestickSeries;
 
     return () => {
       if (chart) {
