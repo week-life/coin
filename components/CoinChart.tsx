@@ -15,7 +15,7 @@ import {
 } from 'chart.js';
 
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { Line, Bar, Chart } from 'react-chartjs-2';
+import { Line, Bar } from 'react-chartjs-2';
 import { Button } from '@/components/ui/button';
 import { Maximize2, Minimize2, ExternalLink, ZoomIn, ZoomOut, MoveHorizontal, RefreshCw } from 'lucide-react';
 import { formatTimestamp, calculateMA, calculateRSI, calculateBollingerBands, calculateMACD } from '@/lib/utils';
@@ -31,7 +31,7 @@ ChartJS.register(
   Tooltip,
   Legend,
   Filler,
-  zoomPlugin,
+  zoomPlugin
 );
 
 interface CandleData {
@@ -284,8 +284,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       ma120: calculateMA(prices, 120)
     };
   };
-
-  // 캔들스틱 데이터 준비
+  // 캔들스틱 데이터 준비 (라인 차트로 변경)
   const getCandlestickData = () => {
     if (!data || data.length === 0) {
       return {
@@ -303,29 +302,20 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
     // 가격 데이터 준비
     const prices = sortedData.map(item => item.trade_price);
     
-    // 캔들스틱 데이터 준비
-    const candlestickData = sortedData.map(item => ({
-      x: item.timestamp,
-      o: item.opening_price,
-      h: item.high_price,
-      l: item.low_price,
-      c: item.trade_price
-    }));
-
     // 이동평균선 계산
     const { ma7, ma14, ma30, ma60, ma90, ma120 } = calculateMAs(prices);
     
-    // 데이터셋 준비
+    // 데이터셋 준비 (라인 차트로 변경)
     const datasets: any[] = [
       {
-        label: '캔들',
-        data: candlestickData,
-        color: {
-          up: darkThemeColors.priceUp,
-          down: darkThemeColors.priceDown,
-          unchanged: '#888888',
-        },
-        borderWidth: 1,
+        type: 'line',
+        label: '가격',
+        data: prices,
+        borderColor: darkThemeColors.priceUp,
+        backgroundColor: 'transparent',
+        tension: 0.1,
+        borderWidth: 2,
+        pointRadius: 0,
         yAxisID: 'y'
       }
     ];
@@ -336,10 +326,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         {
           type: 'line',
           label: 'MA7',
-          data: sortedData.map((item, index) => ({
-            x: item.timestamp,
-            y: ma7[index] || null
-          })),
+          data: ma7,
           borderColor: darkThemeColors.ma7,
           backgroundColor: 'transparent',
           tension: 0.1,
@@ -350,10 +337,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         {
           type: 'line',
           label: 'MA14',
-          data: sortedData.map((item, index) => ({
-            x: item.timestamp,
-            y: ma14[index] || null
-          })),
+          data: ma14,
           borderColor: darkThemeColors.ma14,
           backgroundColor: 'transparent',
           tension: 0.1,
@@ -364,10 +348,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         {
           type: 'line',
           label: 'MA30',
-          data: sortedData.map((item, index) => ({
-            x: item.timestamp,
-            y: ma30[index] || null
-          })),
+          data: ma30,
           borderColor: darkThemeColors.ma30,
           backgroundColor: 'transparent',
           tension: 0.1,
@@ -378,10 +359,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         {
           type: 'line',
           label: 'MA60',
-          data: sortedData.map((item, index) => ({
-            x: item.timestamp,
-            y: ma60[index] || null
-          })),
+          data: ma60,
           borderColor: darkThemeColors.ma60,
           backgroundColor: 'transparent',
           tension: 0.1,
@@ -392,10 +370,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         {
           type: 'line',
           label: 'MA90',
-          data: sortedData.map((item, index) => ({
-            x: item.timestamp,
-            y: ma90[index] || null
-          })),
+          data: ma90,
           borderColor: darkThemeColors.ma90,
           backgroundColor: 'transparent',
           tension: 0.1,
@@ -406,10 +381,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
         {
           type: 'line',
           label: 'MA120',
-          data: sortedData.map((item, index) => ({
-            x: item.timestamp,
-            y: ma120[index] || null
-          })),
+          data: ma120,
           borderColor: darkThemeColors.ma120,
           backgroundColor: 'transparent',
           tension: 0.1,
@@ -425,6 +397,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       datasets
     };
   };
+  
   // 볼륨 차트 데이터 준비
   const getVolumeChartData = () => {
     if (!data || data.length === 0) {
@@ -605,8 +578,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       datasets
     };
   };
-
-  // 캔들스틱 차트 옵션
+  // 차트 옵션 (candlestick 관련 속성 삭제)
   const getCandlestickChartOptions = () => {
     return {
       responsive: true,
@@ -644,21 +616,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           bodyColor: darkThemeColors.text,
           borderColor: darkThemeColors.gridLines,
           borderWidth: 1,
-          mode: 'index' as const,
-          callbacks: {
-            label: (context: any) => {
-              const item = context.raw;
-              if (item && item.o !== undefined) {
-                return [
-                  `시가: ${item.o.toLocaleString()}`,
-                  `고가: ${item.h.toLocaleString()}`,
-                  `저가: ${item.l.toLocaleString()}`,
-                  `종가: ${item.c.toLocaleString()}`
-                ];
-              }
-              return context.dataset.label + ': ' + context.parsed.y;
-            }
-          }
+          mode: 'index' as const
         },
         zoom: {
           pan: {
@@ -706,15 +664,6 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
           grid: {
             color: darkThemeColors.gridLines,
             display: true
-          }
-        }
-      },
-      elements: {
-        candlestick: {
-          color: {
-            up: darkThemeColors.priceUp,
-            down: darkThemeColors.priceDown,
-            unchanged: '#888888',
           }
         }
       }
@@ -1055,17 +1004,17 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       // 차트 영역 렌더링
       return (
         <div className="flex flex-col w-full space-y-2">
-          {/* 메인 캔들스틱 차트 영역 - 더 큰 높이 할당 */}
+          {/* 메인 차트 영역 - 더 큰 높이 할당 */}
           <div className="w-full" style={{ height: `${Math.floor(chartHeight * 0.6)}px` }}>
-            <Line 
-  data={candlestickData} 
-  options={candlestickOptions}
-  ref={(ref) => {
-    if (ref) {
-      priceChartRef.current = ref;
-    }
-  }}
-/>
+            <Line
+              data={candlestickData} 
+              options={candlestickOptions}
+              ref={(ref) => {
+                if (ref) {
+                  priceChartRef.current = ref;
+                }
+              }}
+            />
           </div>
           
           {/* 거래량 차트 영역 */}
@@ -1124,7 +1073,6 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       );
     }
   };
-
   // 지표 토글 함수
   const toggleIndicator = (indicator: Indicator) => {
     setIndicators(prev => {
@@ -1135,6 +1083,7 @@ export default function CoinChart({ symbol, initialData = [] }: CoinChartProps) 
       }
     });
   };
+  
   return (
     <div className="space-y-4" style={{ backgroundColor: darkThemeColors.background, color: darkThemeColors.text, padding: '20px', borderRadius: '8px' }}>
       <div className="flex flex-wrap justify-between items-center gap-2">
