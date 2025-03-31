@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createChart, ColorType, IChartApi, CandlestickData } from 'lightweight-charts';
 import { Button } from '@/components/ui/button';
 import { Maximize2, Minimize2, ExternalLink, ZoomIn, ZoomOut, MoveHorizontal, RefreshCw } from 'lucide-react';
@@ -52,6 +52,22 @@ export default function CoinChart({ symbol }: CoinChartProps) {
 
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+
+  const removeChart = useCallback(() => {
+    if (chartRef.current) {
+      try {
+        const chart = chartRef.current as any;
+        if (typeof chart.remove === 'function') {
+          chart.remove();
+        } else if (typeof chart.destroy === 'function') {
+          chart.destroy();
+        }
+      } catch (error) {
+        console.error('차트 제거 중 오류:', error);
+      }
+      chartRef.current = null;
+    }
+  }, []);
 
   const fetchCandleData = async () => {
     try {
@@ -140,15 +156,8 @@ export default function CoinChart({ symbol }: CoinChartProps) {
   useEffect(() => {
     if (!chartContainerRef.current || data.length === 0) return;
 
-    // 이전 차트 정리
-    if (chartRef.current) {
-      try {
-        chartRef.current.remove();
-      } catch (error) {
-        console.error('기존 차트 제거 중 오류:', error);
-      }
-      chartRef.current = null;
-    }
+    // 기존 차트 제거
+    removeChart();
 
     // 가격 데이터 준비
     const prices = data.map(d => d.trade_price);
@@ -309,17 +318,11 @@ export default function CoinChart({ symbol }: CoinChartProps) {
     chartRef.current = chart;
 
     return () => {
-      if (chartRef.current) {
-        try {
-          chartRef.current.remove();
-        } catch (error) {
-          console.error('차트 제거 중 오류:', error);
-        }
-        chartRef.current = null;
-      }
+      removeChart();
     };
-  }, [data, chartHeight, symbol]);
+  }, [data, chartHeight, symbol, removeChart]);
 
+  // 전체화면 토글
   const toggleFullScreen = () => {
     setIsFullScreen(!isFullScreen);
     if (chartContainerRef.current) {
