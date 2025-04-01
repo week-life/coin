@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Star, StarOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatNumber } from '@/lib/utils';
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, ColorType, ChartOptions } from 'lightweight-charts';
 
 interface Coin {
   id: number;
@@ -264,7 +264,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
       chartRef.current.innerHTML = '';
       setSelectedSymbol(symbol);
 
-      const chart = createChart(chartRef.current, {
+      const chartOptions: ChartOptions = {
         width: chartRef.current.clientWidth,
         height: 500, // 차트 높이 증가
         layout: {
@@ -283,8 +283,14 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         },
         timeScale: {
           borderColor: 'rgba(197, 203, 206, 0.8)',
-          timeVisible: true,
         },
+      };
+
+      const chart = createChart(chartRef.current, chartOptions);
+
+      // 시간 스케일 옵션 추가
+      chart.timeScale().applyOptions({
+        timeVisible: true,
       });
 
       // 캔들 데이터 가져오기 (가능한 한 많은 데이터 가져오기)
