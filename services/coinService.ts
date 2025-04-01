@@ -1,20 +1,22 @@
-import { CoinData, ChartData, CoinTickerData } from '@/types/coin';
+import { CoinData, ChartData } from '@/types/coin';
 import { preprocessChartData } from '@/lib/utils';
 
 const BINANCE_API_BASE = 'https://api.binance.com/api/v3';
 
 export class CoinService {
-  static async fetchCoins(symbols: string[] = ['BTCUSDT', 'ETHUSDT']): Promise<CoinData[]> {
+  static async fetchCoins(): Promise<CoinData[]> {
+    const defaultSymbols = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'ADAUSDT', 'DOGEUSDT'];
+
     try {
       const tickers = await Promise.all(
-        symbols.map(symbol => 
+        defaultSymbols.map(symbol => 
           fetch(`${BINANCE_API_BASE}/ticker/24hr?symbol=${symbol}`)
             .then(res => res.json())
         )
       );
 
-      return tickers.map((ticker, index) => ({
-        id: symbols[index],
+      return tickers.map((ticker) => ({
+        id: ticker.symbol,
         symbol: ticker.symbol,
         market: 'Binance',
         korean_name: this.getKoreanName(ticker.symbol),
@@ -31,7 +33,7 @@ export class CoinService {
   }
 
   static async fetchChartData(
-    symbol: string, 
+    symbol: string = 'BTCUSDT', 
     interval: string = '1d', 
     limit: number = 100
   ): Promise<ChartData[]> {
