@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Star, StarOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatNumber } from '@/lib/utils';
-import { createChart, ColorType, ChartOptions } from 'lightweight-charts';
+import { createChart, ColorType } from 'lightweight-charts';
 
 interface Coin {
   id: number;
@@ -264,7 +264,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
       chartRef.current.innerHTML = '';
       setSelectedSymbol(symbol);
 
-      const chartOptions: ChartOptions = {
+      const chart = createChart(chartRef.current, {
         width: chartRef.current.clientWidth,
         height: 500, // 차트 높이 증가
         layout: {
@@ -284,9 +284,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         timeScale: {
           borderColor: 'rgba(197, 203, 206, 0.8)',
         },
-      };
-
-      const chart = createChart(chartRef.current, chartOptions);
+      });
 
       // 시간 스케일 옵션 추가
       chart.timeScale().applyOptions({
