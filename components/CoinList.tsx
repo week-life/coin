@@ -408,14 +408,12 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
           title: 'Signal Line',
         });
         
-        // 히스토그램 추가 - v4.1.1에 맞게 간소화
-        const histogramSeries = macdChart.addHistogramSeries({
-          color: '#26a69a',
-        });
+        // 히스토그램 추가 - 옵션 최소화
+        const histogramSeries = macdChart.addHistogramSeries();
+        histogramSeries.setData(macdResult.histogram);
         
         macdLineSeries.setData(macdResult.macdLine);
         signalLineSeries.setData(macdResult.signalLine);
-        histogramSeries.setData(macdResult.histogram);
         
         // RSI 계산 및 표시
         const rsiData = calculateRSI(formattedData);
@@ -426,17 +424,15 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
           title: 'RSI(14)',
         });
         
-        // 70과 30 수준선 추가
+        // 70과 30 수준선 추가 - 옵션 최소화
         const rsi70Series = rsiChart.addLineSeries({
           color: 'rgba(255, 0, 0, 0.5)',
           lineWidth: 1,
-          lineStyle: 2,
         });
         
         const rsi30Series = rsiChart.addLineSeries({
           color: 'rgba(0, 128, 0, 0.5)',
           lineWidth: 1,
-          lineStyle: 2,
         });
         
         // 수평선 데이터 생성
@@ -472,7 +468,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         macdChart.timeScale().fitContent();
         rsiChart.timeScale().fitContent();
         
-        // 차트 동기화 - Lightweight Charts v4.1.1 방식으로 구현
+        // 차트 동기화 - 최신 버전 방식으로 구현
         mainChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
           if (range) {
             macdChart.timeScale().setVisibleLogicalRange(range);
