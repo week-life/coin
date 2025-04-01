@@ -283,12 +283,14 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         },
         timeScale: {
           borderColor: 'rgba(197, 203, 206, 0.8)',
+          timeVisible: true, // 직접 옵션에 추가
         },
-      });
-
-      // 시간 스케일 옵션 추가
-      chart.timeScale().applyOptions({
-        timeVisible: true,
+        watermark: {
+          visible: true,
+          text: symbol,
+          color: 'rgba(0, 0, 0, 0.2)',
+          fontSize: 40,
+        },
       });
 
       // 캔들 데이터 가져오기 (가능한 한 많은 데이터 가져오기)
@@ -430,16 +432,6 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         rsiSeries.setData(rsiData);
         rsi70Series.setData(horizontalLines);
         rsi30Series.setData(horizontalLines30);
-        
-        // 차트 크기 조정
-        chart.applyOptions({
-          watermark: {
-            visible: true,
-            text: symbol,
-            color: 'rgba(0, 0, 0, 0.2)',
-            fontSize: 40,
-          },
-        });
         
         // 표시 영역 조정
         chart.timeScale().fitContent();
