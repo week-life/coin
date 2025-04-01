@@ -264,10 +264,28 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
       chartRef.current.innerHTML = '';
       setSelectedSymbol(symbol);
 
-      // 차트 생성 - 타입 오류 방지를 위한 as any 사용
-      const chart = createChart(chartRef.current, {
-        width: chartRef.current.clientWidth,
-        height: 500, // 차트 높이 증가
+      // 여러 차트를 위한 컨테이너 생성
+      const mainChartDiv = document.createElement('div');
+      mainChartDiv.style.height = '350px';
+      mainChartDiv.style.width = '100%';
+      chartRef.current.appendChild(mainChartDiv);
+
+      const macdDiv = document.createElement('div');
+      macdDiv.style.height = '150px';
+      macdDiv.style.width = '100%';
+      macdDiv.style.marginTop = '10px';
+      chartRef.current.appendChild(macdDiv);
+
+      const rsiDiv = document.createElement('div');
+      rsiDiv.style.height = '150px';
+      rsiDiv.style.width = '100%';
+      rsiDiv.style.marginTop = '10px';
+      chartRef.current.appendChild(rsiDiv);
+
+      // 캔들 차트 생성
+      const mainChart = createChart(mainChartDiv, {
+        width: mainChartDiv.clientWidth,
+        height: mainChartDiv.clientHeight,
         layout: {
           background: { type: ColorType.Solid, color: 'white' },
           textColor: 'black',
@@ -276,21 +294,45 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
           vertLines: { color: 'rgba(197, 203, 206, 0.5)' },
           horzLines: { color: 'rgba(197, 203, 206, 0.5)' },
         },
-        crosshair: {
-          mode: 1,
+        watermark: {
+          visible: true,
+          text: symbol,
+          color: 'rgba(0, 0, 0, 0.2)',
+          fontSize: 40
+        }
+      });
+
+      // MACD 차트 생성
+      const macdChart = createChart(macdDiv, {
+        width: macdDiv.clientWidth,
+        height: macdDiv.clientHeight,
+        layout: {
+          background: { type: ColorType.Solid, color: 'white' },
+          textColor: 'black',
         },
-        rightPriceScale: {
-          borderColor: 'rgba(197, 203, 206, 0.8)',
-        },
-        timeScale: {
-          borderColor: 'rgba(197, 203, 206, 0.8)',
+        grid: {
+          vertLines: { color: 'rgba(197, 203, 206, 0.5)' },
+          horzLines: { color: 'rgba(197, 203, 206, 0.5)' },
         },
       });
 
-      // 캔들 데이터 가져오기 (가능한 한 많은 데이터 가져오기)
+      // RSI 차트 생성
+      const rsiChart = createChart(rsiDiv, {
+        width: rsiDiv.clientWidth,
+        height: rsiDiv.clientHeight,
+        layout: {
+          background: { type: ColorType.Solid, color: 'white' },
+          textColor: 'black',
+        },
+        grid: {
+          vertLines: { color: 'rgba(197, 203, 206, 0.5)' },
+          horzLines: { color: 'rgba(197, 203, 206, 0.5)' },
+        },
+      });
+
+      // 캔들 데이터 가져오기
       try {
-        // 최대한 많은 과거 데이터를 가져오기 위해 여러 번 API 호출
-        // 바이낸스 API는 한 번에 최대 1000개의 데이터를 제공
+        // 과거 데이터를 가능한 한 많이 가져오는 함수
         const fetchHistoricalData = async (limit: number = 1000, endTime?: string) => {
           let url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=${limit}`;
           if (endTime) {
@@ -300,14 +342,12 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
           return await response.json();
         };
         
-        // 첫 번째 데이터 세트 가져오기
+        // 초기 데이터 가져오기
         const initialData = await fetchHistoricalData();
-        
-        // 더 많은 과거 데이터 가져오기 (3번 더 호출하여 총 4000개까지)
         let allData = [...initialData];
         
+        // 더 많은 과거 데이터 가져오기
         if (initialData.length > 0) {
-          // 첫 번째 데이터 세트의 가장 오래된 시간을 기준으로 그 이전 데이터 가져오기
           let oldestTime = parseInt(initialData[0][0]);
           
           for (let i = 0; i < 3; i++) {
@@ -316,40 +356,41 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
               allData = [...moreData, ...allData];
               oldestTime = parseInt(moreData[0][0]);
             } else {
-              break; // 더 이상 데이터가 없으면 종료
+              break;
             }
           }
         }
         
-        const candleSeries = chart.addCandlestickSeries({
-          upColor: 'red',
-          downColor: 'blue',
-          borderVisible: false,
-          wickUpColor: 'red',
-          wickDownColor: 'blue',
-        });
-
+        // 데이터 포맷팅
         const formattedData = allData.map((candle: any) => ({
-          time: parseInt(candle[0]) / 1000, // 밀리초를 초로 변환
+          time: parseInt(candle[0]) / 1000,
           open: parseFloat(candle[1]),
           high: parseFloat(candle[2]),
           low: parseFloat(candle[3]),
           close: parseFloat(candle[4]),
         }));
 
+        // 캔들 시리즈 추가
+        const candleSeries = mainChart.addCandlestickSeries({
+          upColor: 'red',
+          downColor: 'blue',
+          borderVisible: false,
+          wickUpColor: 'red',
+          wickDownColor: 'blue',
+        });
         candleSeries.setData(formattedData);
         
-        // MA 계산 및 표시 (20일선, 50일선)
+        // MA 계산 및 표시
         const sma20Data = calculateSMA(formattedData, 20);
         const sma50Data = calculateSMA(formattedData, 50);
         
-        const ma20Series = chart.addLineSeries({
+        const ma20Series = mainChart.addLineSeries({
           color: 'rgba(255, 140, 0, 1)',
           lineWidth: 2,
           title: 'MA20',
         });
         
-        const ma50Series = chart.addLineSeries({
+        const ma50Series = mainChart.addLineSeries({
           color: 'rgba(30, 144, 255, 1)',
           lineWidth: 2,
           title: 'MA50',
@@ -361,24 +402,25 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         // MACD 계산 및 표시
         const macdResult = calculateMACD(formattedData);
         
-        // 새로운 창에 MACD 표시
-        const macdPane = chart.addPane(100);
-        
-        const macdLineSeries = macdPane.addLineSeries({
+        const macdLineSeries = macdChart.addLineSeries({
           color: 'rgba(30, 144, 255, 1)',
           lineWidth: 2,
           title: 'MACD Line',
         });
         
-        const signalLineSeries = macdPane.addLineSeries({
+        const signalLineSeries = macdChart.addLineSeries({
           color: 'rgba(255, 70, 70, 1)',
           lineWidth: 2,
           title: 'Signal Line',
         });
         
-        const histogramSeries = macdPane.addHistogramSeries({
-          color: 'rgba(76, 175, 80, 0.8)',
-          title: 'Histogram',
+        const histogramSeries = macdChart.addHistogramSeries({
+          color: '#26a69a',
+          priceFormat: {
+            type: 'price',
+            precision: 6,
+            minMove: 0.000001,
+          },
         });
         
         macdLineSeries.setData(macdResult.macdLine);
@@ -388,32 +430,27 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         // RSI 계산 및 표시
         const rsiData = calculateRSI(formattedData);
         
-        // 새로운 창에 RSI 표시
-        const rsiPane = chart.addPane(100);
-        
-        const rsiSeries = rsiPane.addLineSeries({
+        const rsiSeries = rsiChart.addLineSeries({
           color: 'rgba(125, 75, 199, 1)',
           lineWidth: 2,
           title: 'RSI(14)',
         });
         
         // 70과 30 수준선 추가
-        const rsi70Series = rsiPane.addLineSeries({
+        const rsi70Series = rsiChart.addLineSeries({
           color: 'rgba(255, 0, 0, 0.5)',
           lineWidth: 1,
-          lineStyle: 2, // 점선 (LineStyle.Dashed 대신 숫자로 지정)
-          title: '',
+          lineStyle: 2,
         });
         
-        const rsi30Series = rsiPane.addLineSeries({
+        const rsi30Series = rsiChart.addLineSeries({
           color: 'rgba(0, 128, 0, 0.5)',
           lineWidth: 1,
-          lineStyle: 2, // 점선 (LineStyle.Dashed 대신 숫자로 지정)
-          title: '',
+          lineStyle: 2,
         });
         
-        // 70과 30 수준선 데이터 설정
-        const horizontalLines = rsiData.map(item => ({
+        // 수평선 데이터 생성
+        const horizontalLines70 = rsiData.map(item => ({
           time: item.time,
           value: 70,
         }));
@@ -424,42 +461,38 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         }));
         
         rsiSeries.setData(rsiData);
-        rsi70Series.setData(horizontalLines);
+        rsi70Series.setData(horizontalLines70);
         rsi30Series.setData(horizontalLines30);
         
-        // 특별한 설정은 안전하게 모두 제거
-        try {
-          // @ts-ignore - 타입 체크 무시
-          chart.timeScale().applyOptions({
-            timeVisible: true,
-          });
-        } catch (e) {
-          console.error('타임스케일 설정 오류:', e);
-        }
-
-        try {
-          // 워터마크 설정
-          chart.applyOptions({
-            watermark: {
-              visible: true,
-              text: symbol,
-              color: 'rgba(0, 0, 0, 0.2)',
-              fontSize: 40
-            }
-          });
-        } catch (e) {
-          console.error('워터마크 설정 오류:', e);
-        }
-
-        try {
-          // 표시 영역 조정
-          chart.timeScale().fitContent();
-        } catch (e) {
-          console.error('fitContent 오류:', e);
-        }
+        // 차트 영역 맞추기
+        mainChart.timeScale().fitContent();
+        macdChart.timeScale().fitContent();
+        rsiChart.timeScale().fitContent();
+        
+        // 차트 동기화 - Lightweight Charts v4.1.1 방식으로 구현
+        mainChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+          if (range) {
+            macdChart.timeScale().setVisibleLogicalRange(range);
+            rsiChart.timeScale().setVisibleLogicalRange(range);
+          }
+        });
+        
+        macdChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+          if (range) {
+            mainChart.timeScale().setVisibleLogicalRange(range);
+            rsiChart.timeScale().setVisibleLogicalRange(range);
+          }
+        });
+        
+        rsiChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+          if (range) {
+            mainChart.timeScale().setVisibleLogicalRange(range);
+            macdChart.timeScale().setVisibleLogicalRange(range);
+          }
+        });
         
       } catch (error) {
-        console.error('캔들 데이터 가져오기 실패:', error);
+        console.error('차트 데이터 로딩 에러:', error);
       }
     }
   };
