@@ -1,13 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import CoinCard from '@/components/CoinCard';
-// import useCoinData from '@/hooks/useCoinData'; // <- 기존 problematic 코드
-import useCoinData from '../../hooks/useCoinData'; // <- 수정된 코드 (상대 경로 사용)
-import { useFavoriteStore } from '@/store/useFavoriteStore';
-import { CoinData } from '@/types/coin';
-import Pagination from '@/components/Pagination';
-import LoadingSpinner from '@/components/LoadingSpinner'; // 로딩 스피너 컴포넌트 임포트
+// 모든 로컬 import를 상대 경로로 수정
+import CoinCard from '../../components/CoinCard';
+import useCoinData from '../../hooks/useCoinData';
+import { useFavoriteStore } from '../../store/useFavoriteStore';
+import { CoinData } from '../../types/coin'; // CoinData 타입 import 경로도 수정
+import Pagination from '../../components/Pagination';
+import LoadingSpinner from '../../components/LoadingSpinner';
 
 const FavoritesPage: React.FC = () => {
   const { favorites, toggleFavorite } = useFavoriteStore();
@@ -17,12 +17,10 @@ const FavoritesPage: React.FC = () => {
   // 즐겨찾기 목록에 있는 코인 ID만 필터링
   const favoriteCoinIds = Array.from(favorites);
 
-  // useCoinData 훅을 사용하여 모든 코인 데이터를 가져옵니다.
-  // 즐겨찾기 페이지에서는 페이지네이션이 필요 없을 수 있으므로,
-  // 일단 모든 데이터를 가져오거나 (API가 지원한다면)
-  // 또는 여러 페이지를 순회하며 즐겨찾기 항목을 찾아야 할 수 있습니다.
-  // 여기서는 예시로 첫 페이지만 가져오고, 클라이언트 측에서 필터링합니다.
-  // 실제 사용 사례에 따라 API 호출 방식 조정이 필요할 수 있습니다.
+  // useCoinData 훅을 사용하여 코인 데이터를 가져옵니다.
+  // 즐겨찾기 페이지에서는 필요한 데이터만 필터링해야 합니다.
+  // 여기서는 예시로 첫 페이지만 가져오고 클라이언트 측에서 필터링합니다.
+  // 실제 구현 시에는 API 최적화 또는 여러 페이지 로드가 필요할 수 있습니다.
   const { data, error, isLoading } = useCoinData(1); // 예시: 첫 페이지만 로드
 
   // 로딩 상태 처리
@@ -74,12 +72,14 @@ const FavoritesPage: React.FC = () => {
               />
             ))}
           </div>
-          <Pagination
-            currentPage={currentPage}
-            totalItems={favoriteCoins.length}
-            itemsPerPage={itemsPerPage}
-            onPageChange={handlePageChange}
-          />
+          {favoriteCoins.length > itemsPerPage && ( // 페이지네이션은 아이템이 페이지당 개수보다 많을 때만 표시
+             <Pagination
+               currentPage={currentPage}
+               totalItems={favoriteCoins.length}
+               itemsPerPage={itemsPerPage}
+               onPageChange={handlePageChange}
+             />
+           )}
         </>
       )}
     </div>
