@@ -293,12 +293,6 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         grid: {
           vertLines: { color: 'rgba(197, 203, 206, 0.5)' },
           horzLines: { color: 'rgba(197, 203, 206, 0.5)' },
-        },
-        watermark: {
-          visible: true,
-          text: symbol,
-          color: 'rgba(0, 0, 0, 0.2)',
-          fontSize: 40
         }
       });
 
@@ -463,6 +457,19 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         rsiSeries.setData(rsiData);
         rsi70Series.setData(horizontalLines70);
         rsi30Series.setData(horizontalLines30);
+        
+        // 심볼 텍스트 추가
+        const symbolLabel = document.createElement('div');
+        symbolLabel.style.position = 'absolute';
+        symbolLabel.style.top = '10px';
+        symbolLabel.style.left = '50%';
+        symbolLabel.style.transform = 'translateX(-50%)';
+        symbolLabel.style.fontSize = '24px';
+        symbolLabel.style.color = 'rgba(0, 0, 0, 0.2)';
+        symbolLabel.style.fontWeight = 'bold';
+        symbolLabel.textContent = symbol;
+        mainChartDiv.style.position = 'relative';
+        mainChartDiv.appendChild(symbolLabel);
         
         // 차트 영역 맞추기
         mainChart.timeScale().fitContent();
