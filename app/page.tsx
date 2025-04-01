@@ -1,36 +1,59 @@
-// app/page.tsx
+// app/page.tsx (최종 수정 제안)
 
 'use client';
 
-import React, { useState } from 'react';
-// import CoinCard from '@/components/CoinCard'; // <- 이 import 삭제
-import CoinList from '@/components/CoinList'; // <- CoinList import 추가
-import useCoinData from '@/hooks/useCoinData';
-// import { useFavoriteStore } from '@/store/useFavoriteStore'; // Favorite Store import 삭제
-import { CoinData } from '@/types/coin';
-import Pagination from '@/components/Pagination';
-import LoadingSpinner from '@/components/LoadingSpinner';
+// React 및 사용자님이 사용하시는 상태/로직 관련 훅 import (예시)
+import React, { useState, useEffect } from 'react';
+
+// --- 존재하는 로컬 파일 import (안정성을 위해 상대 경로 사용) ---
+import CoinList from '../components/CoinList'; // ../components/CoinList.tsx 확인
+import { CoinData } from '../types/coin';     // ../types/coin.ts 확인
+
+// --- 존재하지 않는 파일 import 제거 ---
+// import useCoinData from '../hooks/useCoinData'; // 또는 '@/hooks/useCoinData'
+// import Pagination from '../components/Pagination'; // 또는 '@/components/Pagination'
+// import LoadingSpinner from '../components/LoadingSpinner'; // 또는 '@/components/LoadingSpinner'
+
 
 const HomePage: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10; // 페이지당 아이템 수 (CoinList와 일치해야 할 수 있음)
+  // ==================================================================
+  // == 사용자님의 기존 상태 관리 및 데이터 로딩 로직이 여기에 유지됩니다 ==
+  // ==================================================================
+  const [currentPage, setCurrentPage] = useState(1); // 예시 상태
+  const [data, setData] = useState<CoinData[]>([]);      // 예시 상태
+  const [isLoading, setIsLoading] = useState<boolean>(true);  // 예시 상태
+  const [error, setError] = useState<Error | null>(null); // 예시 상태
+  const [totalItems, setTotalItems] = useState(0);      // 예시 상태 (페이지네이션용)
+  const itemsPerPage = 10;                           // 예시 상태
 
-  // useFavoriteStore 훅 사용 부분 완전 삭제
+  useEffect(() => {
+    // --- 사용자님의 실제 API 호출 로직 ---
+    const fetchData = async () => {
+       setIsLoading(true);
+       setError(null);
+       try {
+         // 사용자님의 코드를 여기에 그대로 두세요
+         // (예: fetch, 상태 업데이트 등)
 
-  // useCoinData 훅을 사용하여 코인 데이터를 가져옵니다. (페이지 번호 전달)
-  const { data, error, isLoading } = useCoinData(currentPage);
+       } catch (err) {
+         setError(err instanceof Error ? err : new Error('Error fetching data'));
+       } finally {
+         setIsLoading(false);
+       }
+    };
+    fetchData();
+  }, [currentPage]); // 사용자님의 의존성 배열
 
-  // 현재 페이지에 표시할 코인 데이터 (CoinList에 전달)
-  const currentItems = data || []; // useCoinData가 해당 페이지 데이터만 반환한다고 가정
-
+  // 페이지 변경 핸들러 (임시 버튼용)
   const handlePageChange = (pageNumber: number) => {
-    setCurrentPage(pageNumber);
+    const newPage = Math.max(1, pageNumber);
+    setCurrentPage(newPage);
     window.scrollTo(0, 0);
   };
+  // ==================================================================
+  // == 사용자 로직 끝 ==
+  // ==================================================================
 
-  // 총 아이템 수 계산 (API 응답 구조에 따라 달라질 수 있음)
-  // 여기서는 예시로 고정값을 사용하나, 실제로는 API에서 총 개수를 받아와야 함
-  const totalItems = 100; // <<-- 중요: 이 값은 실제 API 응답의 총 코인 개수로 대체해야 합니다.
 
   return (
     <main className="container mx-auto p-4">
@@ -38,51 +61,52 @@ const HomePage: React.FC = () => {
         실시간 코인 시세
       </h1>
 
-      {isLoading && ( // 로딩 상태 표시
+      {/* --- LoadingSpinner 대신 간단한 UI --- */}
+      {isLoading && (
         <div className="flex justify-center items-center h-64">
-          <LoadingSpinner />
+          <p>로딩 중...</p>
         </div>
       )}
 
-      {error && ( // 에러 상태 표시
+      {error && ( // 에러 표시는 유지
         <div className="text-center text-red-500 mt-10">
           데이터를 불러오는 중 오류가 발생했습니다: {error.message}
-          <p className="text-sm text-gray-500">잠시 후 다시 시도해주세요.</p>
         </div>
       )}
 
-      {!isLoading && !error && data && ( // 데이터 로딩 완료 및 에러 없을 때
+      {!isLoading && !error && data && ( // 데이터 로딩 완료 시
         <>
-          {/* --- CoinCard 직접 렌더링 대신 CoinList 사용 --- */}
-          {/*
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
-            {currentItems.map((coin: CoinData) => (
-              <CoinCard
-                key={coin.id}
-                coin={coin}
-              />
-            ))}
+          {/* CoinList에 데이터 전달 */}
+          <div className="mb-8">
+            <CoinList
+              coins={data} // 실제 데이터 전달
+              isLoading={false} // 로딩 상태는 여기서 관리
+              error={null}     // 에러 상태는 여기서 관리
+              onSelectCoin={(symbol) => console.log('Selected:', symbol)} // 실제 핸들러 필요
+             />
           </div>
-           */}
-          {/* CoinList 컴포넌트에 코인 데이터 전달 */}
-          <div className="mb-8"> {/* CoinList를 감싸는 div 추가 (선택 사항) */}
-            <CoinList coins={currentItems} /> {/* coins prop 이름은 CoinList 내부 구현에 맞춰야 할 수 있음 */}
-          </div>
-          {/* --- CoinList 사용 끝 --- */}
 
-
-          {/* 페이지네이션 컴포넌트 */}
-          {totalItems > itemsPerPage && (
-            <Pagination
-              currentPage={currentPage}
-              totalItems={totalItems} // <<-- 중요: 실제 총 아이템 수 필요
-              itemsPerPage={itemsPerPage}
-              onPageChange={handlePageChange}
-            />
-          )}
+          {/* --- Pagination 대신 임시 버튼 --- */}
+           <div className="flex justify-center space-x-2 mt-4">
+             <button
+               onClick={() => handlePageChange(currentPage - 1)}
+               disabled={currentPage <= 1 || isLoading}
+               className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
+             >
+               이전
+             </button>
+             <span className="px-4 py-2">페이지 {currentPage}</span>
+             <button
+               onClick={() => handlePageChange(currentPage + 1)}
+               disabled={isLoading || (totalItems > 0 && currentPage * itemsPerPage >= totalItems)}
+               className="px-4 py-2 bg-gray-300 rounded disabled:opacity-50"
+             >
+               다음
+             </button>
+           </div>
         </>
       )}
-       {!isLoading && !error && (!data || data.length === 0) && ( // 데이터가 없을 때 (로딩 후)
+       {!isLoading && !error && (!data || data.length === 0) && ( // 데이터 없을 때
          <p className="text-center text-gray-500 mt-10">표시할 코인 정보가 없습니다.</p>
        )}
     </main>
