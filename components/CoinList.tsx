@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Star, StarOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatNumber } from '@/lib/utils';
-import { createChart, ColorType, LineStyle } from 'lightweight-charts';
+import { createChart, ColorType } from 'lightweight-charts';
 
 interface Coin {
   id: number;
@@ -168,6 +168,7 @@ const calculateMACD = (data: any[], shortPeriod: number = 12, longPeriod: number
 
 export default function CoinList({ initialCoins = [], favoritesOnly = false }: CoinListProps) {
   const [coins, setCoins] = useState<Coin[]>(initialCoins);
+  const [favoriteCoins, setFavoriteCoins] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(initialCoins.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('');
@@ -187,7 +188,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         market: 'Binance',
         korean_name: '비트코인',
         english_name: 'Bitcoin',
-        is_favorite: true, // 기본적으로 즐겨찾기 상태로 설정
+        is_favorite: false, // 초기에 즐겨찾기가 없도록 설정
         current_price: 0,
         change_rate: 0
       }];
@@ -232,6 +233,30 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
     }
   };
 
+  // 즐겨찾기 토글
+  const toggleFavorite = (symbol: string) => {
+    setCoins(prevCoins => {
+      return prevCoins.map(coin => {
+        if (coin.symbol === symbol) {
+          const newFavoriteStatus = !coin.is_favorite;
+          
+          // 즐겨찾기 목록 업데이트
+          if (newFavoriteStatus) {
+            setFavoriteCoins(prev => [...prev, symbol]);
+          } else {
+            setFavoriteCoins(prev => prev.filter(s => s !== symbol));
+          }
+          
+          return {
+            ...coin,
+            is_favorite: newFavoriteStatus
+          };
+        }
+        return coin;
+      });
+    });
+  };
+
   // 코인 차트 렌더링
   const renderChart = async (symbol: string = 'BTCUSDT') => {
     if (chartRef.current) {
@@ -262,10 +287,39 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         },
       });
 
-      // 캔들 데이터 가져오기 (더 많은 데이터 가져오기)
+      // 캔들 데이터 가져오기 (가능한 한 많은 데이터 가져오기)
       try {
-        const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=100`);
-        const data = await response.json();
+        // 최대한 많은 과거 데이터를 가져오기 위해 여러 번 API 호출
+        // 바이낸스 API는 한 번에 최대 1000개의 데이터를 제공
+        const fetchHistoricalData = async (limit = 1000, endTime = undefined) => {
+          let url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=${limit}`;
+          if (endTime) {
+            url += `&endTime=${endTime}`;
+          }
+          const response = await fetch(url);
+          return await response.json();
+        };
+        
+        // 첫 번째 데이터 세트 가져오기
+        const initialData = await fetchHistoricalData();
+        
+        // 더 많은 과거 데이터 가져오기 (3번 더 호출하여 총 4000개까지)
+        let allData = [...initialData];
+        
+        if (initialData.length > 0) {
+          // 첫 번째 데이터 세트의 가장 오래된 시간을 기준으로 그 이전 데이터 가져오기
+          let oldestTime = parseInt(initialData[0][0]);
+          
+          for (let i = 0; i < 3; i++) {
+            const moreData = await fetchHistoricalData(1000, oldestTime - 1);
+            if (moreData.length > 0) {
+              allData = [...moreData, ...allData];
+              oldestTime = parseInt(moreData[0][0]);
+            } else {
+              break; // 더 이상 데이터가 없으면 종료
+            }
+          }
+        }
         
         const candleSeries = chart.addCandlestickSeries({
           upColor: 'red',
@@ -275,7 +329,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
           wickDownColor: 'blue',
         });
 
-        const formattedData = data.map((candle: any) => ({
+        const formattedData = allData.map((candle: any) => ({
           time: parseInt(candle[0]) / 1000, // 밀리초를 초로 변환
           open: parseFloat(candle[1]),
           high: parseFloat(candle[2]),
@@ -347,14 +401,14 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         const rsi70Series = rsiPane.addLineSeries({
           color: 'rgba(255, 0, 0, 0.5)',
           lineWidth: 1,
-          lineStyle: LineStyle.Dashed,
+          lineStyle: 2, // 점선 (LineStyle.Dashed 대신 숫자로 지정)
           title: '',
         });
         
         const rsi30Series = rsiPane.addLineSeries({
           color: 'rgba(0, 128, 0, 0.5)',
           lineWidth: 1,
-          lineStyle: LineStyle.Dashed,
+          lineStyle: 2, // 점선 (LineStyle.Dashed 대신 숫자로 지정)
           title: '',
         });
         
@@ -422,12 +476,75 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
     return () => window.removeEventListener('resize', handleResize);
   }, [chartRef.current]);
 
+  // 코인 추가 함수
+  const addCoin = () => {
+    // 팝업 창을 통해 추가할 코인의 심볼을 입력받음
+    const symbol = prompt('추가할 코인 심볼을 입력하세요 (예: ETHUSDT):');
+    if (!symbol) return;
+    
+    // 대문자로 변환 및 공백 제거
+    const formattedSymbol = symbol.toUpperCase().trim();
+    
+    // 이미 목록에 있는지 확인
+    if (coins.some(coin => coin.symbol === formattedSymbol)) {
+      alert('이미 추가된 코인입니다.');
+      return;
+    }
+    
+    // 코인 추가
+    const newCoin: Coin = {
+      id: Math.random(),
+      symbol: formattedSymbol,
+      market: 'Binance',
+      korean_name: formattedSymbol, // 실제로는 한글 이름을 가져오는 API가 필요할 수 있음
+      english_name: formattedSymbol,
+      is_favorite: false,
+      current_price: 0,
+      change_rate: 0
+    };
+    
+    setCoins(prev => [...prev, newCoin]);
+    
+    // 새로 추가된 코인의 가격 정보 가져오기
+    fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${formattedSymbol}`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('존재하지 않는 코인 심볼입니다.');
+        }
+        return response.json();
+      })
+      .then(data => {
+        setCoins(prev => prev.map(coin => {
+          if (coin.symbol === formattedSymbol) {
+            return {
+              ...coin,
+              current_price: parseFloat(data.lastPrice),
+              change_rate: parseFloat(data.priceChangePercent) / 100,
+            };
+          }
+          return coin;
+        }));
+      })
+      .catch(err => {
+        // 유효하지 않은 심볼이면 목록에서 제거
+        alert(err.message);
+        setCoins(prev => prev.filter(coin => coin.symbol !== formattedSymbol));
+      });
+  };
+
   // 필터링된 코인 목록
   const filteredCoins = coins.filter(
-    coin =>
-      coin.symbol.toLowerCase().includes(filter.toLowerCase()) ||
-      coin.korean_name.toLowerCase().includes(filter.toLowerCase()) ||
-      coin.english_name.toLowerCase().includes(filter.toLowerCase())
+    coin => {
+      // 즐겨찾기 필터
+      if (favoritesOnly && !coin.is_favorite) {
+        return false;
+      }
+      
+      // 검색어 필터
+      return coin.symbol.toLowerCase().includes(filter.toLowerCase()) ||
+            coin.korean_name.toLowerCase().includes(filter.toLowerCase()) ||
+            coin.english_name.toLowerCase().includes(filter.toLowerCase());
+    }
   );
 
   if (loading) {
@@ -470,6 +587,9 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
           <Button variant="outline" onClick={fetchCoins}>
             새로고침
           </Button>
+          <Button onClick={addCoin}>
+            코인 추가
+          </Button>
         </div>
       </div>
 
@@ -509,8 +629,12 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
                 {filteredCoins.map((coin) => (
                   <tr key={coin.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <button>
-                        <Star className="h-5 w-5 text-yellow-400" />
+                      <button onClick={() => toggleFavorite(coin.symbol)}>
+                        {coin.is_favorite ? (
+                          <Star className="h-5 w-5 text-yellow-400" />
+                        ) : (
+                          <StarOff className="h-5 w-5 text-gray-400" />
+                        )}
                       </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
