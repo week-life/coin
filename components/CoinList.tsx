@@ -291,7 +291,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
       try {
         // 최대한 많은 과거 데이터를 가져오기 위해 여러 번 API 호출
         // 바이낸스 API는 한 번에 최대 1000개의 데이터를 제공
-        const fetchHistoricalData = async (limit = 1000, endTime = undefined) => {
+        const fetchHistoricalData = async (limit: number = 1000, endTime?: string) => {
           let url = `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=${limit}`;
           if (endTime) {
             url += `&endTime=${endTime}`;
@@ -311,7 +311,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
           let oldestTime = parseInt(initialData[0][0]);
           
           for (let i = 0; i < 3; i++) {
-            const moreData = await fetchHistoricalData(1000, oldestTime - 1);
+            const moreData = await fetchHistoricalData(1000, oldestTime.toString());
             if (moreData.length > 0) {
               allData = [...moreData, ...allData];
               oldestTime = parseInt(moreData[0][0]);
