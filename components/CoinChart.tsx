@@ -9,7 +9,7 @@ type UTCTimestamp = number;
 
 interface CoinChartProps {
   symbol: string;
-  data: {
+  data?: {
     time: UTCTimestamp;
     open: number;
     high: number;
@@ -18,12 +18,42 @@ interface CoinChartProps {
   }[];
 }
 
-export default function CoinChart({ symbol, data }: CoinChartProps) {
+export default function CoinChart({ symbol, data = [] }: CoinChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const [chartData, setChartData] = useState<CandlestickData[]>([]);
+
+  // 데이터 가져오기 함수
+  const fetchChartData = async () => {
+    try {
+      const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=100`);
+      const rawData = await response.json();
+      
+      const formattedData = rawData.map((candle: any) => ({
+        time: parseInt(candle[0]) / 1000,
+        open: parseFloat(candle[1]),
+        high: parseFloat(candle[2]),
+        low: parseFloat(candle[3]),
+        close: parseFloat(candle[4])
+      }));
+
+      setChartData(formattedData);
+    } catch (error) {
+      console.error('Failed to fetch chart data:', error);
+    }
+  };
 
   useEffect(() => {
-    if (chartContainerRef.current) {
+    // 외부에서 데이터가 전달되지 않았다면 API에서 가져오기
+    if (!data || data.length === 0) {
+      fetchChartData();
+    } else {
+      setChartData(data);
+    }
+  }, [symbol, data]);
+
+  useEffect(() => {
+    if (chartContainerRef.current && chartData.length > 0) {
       // 기존 차트 제거
       if (chartRef.current) {
         chartRef.current.remove();
@@ -62,9 +92,7 @@ export default function CoinChart({ symbol, data }: CoinChartProps) {
       });
 
       // 데이터 설정
-      if (data && data.length > 0) {
-        candleSeries.setData(data);
-      }
+      candleSeries.setData(chartData);
 
       // 차트 참조 저장
       chartRef.current = chart;
@@ -90,7 +118,16 @@ export default function CoinChart({ symbol, data }: CoinChartProps) {
         }
       };
     }
-  }, [symbol, data]);
+  }, [chartData, symbol]);
+
+  // 데이터 로딩 중 또는 데이터 없을 때
+  if (chartData.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-[500px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div 
