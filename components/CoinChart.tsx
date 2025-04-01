@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { createChart, IChartApi, CandlestickData, LineData, LineStyle, CrosshairMode } from 'lightweight-charts';
+import { createChart, IChartApi, CandlestickData, LineData, CrosshairMode } from 'lightweight-charts';
 import { CoinData } from '@/types/coin';
 
 // UTCTimestamp 타입 직접 정의
