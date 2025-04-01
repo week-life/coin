@@ -1,56 +1,89 @@
-//app/favorites/page.tsx
 'use client';
 
-import CoinList from '@/components/CoinList';
-import { useCoinData } from '@/hooks/useCoinData'; // useCoinData 훅 임포트
+import React, { useState } from 'react';
+import CoinCard from '@/components/CoinCard';
+// import useCoinData from '@/hooks/useCoinData'; // <- 기존 problematic 코드
+import useCoinData from '../../hooks/useCoinData'; // <- 수정된 코드 (상대 경로 사용)
+import { useFavoriteStore } from '@/store/useFavoriteStore';
+import { CoinData } from '@/types/coin';
+import Pagination from '@/components/Pagination';
+import LoadingSpinner from '@/components/LoadingSpinner'; // 로딩 스피너 컴포넌트 임포트
 
-export default function FavoritesPage() {
-  // useCoinData 훅 사용
-  const {
-    allCoins,       // 전체 코인 목록 (훅에서 제공해야 함)
-    isLoading,
-    error,
-    toggleFavorite,
-    selectCoin,     // 코인 선택 함수 (차트용, 이름은 훅에 따라 다를 수 있음)
-  } = useCoinData(); // 필요한 모든 상태와 함수를 훅에서 가져옵니다.
+const FavoritesPage: React.FC = () => {
+  const { favorites, toggleFavorite } = useFavoriteStore();
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
-  // 즐겨찾기된 코인만 필터링
-  // 'allCoins' 와 'is_favorite' 상태가 useCoinData 훅에서 관리된다고 가정
-  const favoriteCoins = allCoins.filter(coin => coin.is_favorite);
+  // 즐겨찾기 목록에 있는 코인 ID만 필터링
+  const favoriteCoinIds = Array.from(favorites);
 
-  const handleSelectCoin = (symbol: string) => {
-    selectCoin(symbol);
-    // 필요시 즐겨찾기 페이지에서도 차트 표시 로직 추가
-    console.log("Selected coin on favorites page:", symbol);
+  // useCoinData 훅을 사용하여 모든 코인 데이터를 가져옵니다.
+  // 즐겨찾기 페이지에서는 페이지네이션이 필요 없을 수 있으므로,
+  // 일단 모든 데이터를 가져오거나 (API가 지원한다면)
+  // 또는 여러 페이지를 순회하며 즐겨찾기 항목을 찾아야 할 수 있습니다.
+  // 여기서는 예시로 첫 페이지만 가져오고, 클라이언트 측에서 필터링합니다.
+  // 실제 사용 사례에 따라 API 호출 방식 조정이 필요할 수 있습니다.
+  const { data, error, isLoading } = useCoinData(1); // 예시: 첫 페이지만 로드
+
+  // 로딩 상태 처리
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  // 에러 상태 처리
+  if (error) {
+    return (
+      <div className="text-red-500 text-center mt-10">
+        데이터를 불러오는 중 오류가 발생했습니다: {error.message}
+      </div>
+    );
+  }
+
+  // 즐겨찾기된 코인 데이터만 필터링
+  const favoriteCoins = data
+    ? data.filter((coin: CoinData) => favoriteCoinIds.includes(coin.id))
+    : [];
+
+  // 현재 페이지에 표시할 코인 계산
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = favoriteCoins.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">즐겨찾는 코인</h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          즐겨찾기로 등록한 코인 목록입니다.
-        </p>
-      </div>
-
-      {/* CoinList 컴포넌트에 필터링된 데이터와 필요한 props 전달 */}
-      <CoinList
-        coins={favoriteCoins} // 필터링된 즐겨찾기 코인 목록 전달
-        isLoading={isLoading}
-        error={error}
-        toggleFavorite={toggleFavorite}
-        onSelectCoin={handleSelectCoin} // 이름 클릭 시 핸들러 연결
-        // favoritesOnly prop 제거!
-      />
-
-      {/* 즐겨찾기 페이지에도 차트 표시가 필요하다면 여기에 CoinChart 컴포넌트 추가 */}
-      {/* 예:
-      {selectedSymbol && (
-        <div className="mt-8">
-           <CoinChart symbol={selectedSymbol} />
-        </div>
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-6 text-center">즐겨찾기 목록</h1>
+      {favoriteCoins.length === 0 ? (
+        <p className="text-center text-gray-500">즐겨찾기한 코인이 없습니다.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {currentItems.map((coin) => (
+              <CoinCard
+                key={coin.id}
+                coin={coin}
+                isFavorite={favorites.has(coin.id)}
+                onToggleFavorite={toggleFavorite}
+              />
+            ))}
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalItems={favoriteCoins.length}
+            itemsPerPage={itemsPerPage}
+            onPageChange={handlePageChange}
+          />
+        </>
       )}
-      */}
     </div>
   );
-}
+};
+
+export default FavoritesPage;
