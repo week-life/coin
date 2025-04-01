@@ -1,65 +1,64 @@
 'use client';
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { createChart, IChartApi, CandlestickData, CrosshairMode } from 'lightweight-charts';
-import { CoinChartProps, ChartData } from '@/types/coin';
+import React, { useEffect, useRef, useState } from 'react';
+import { 
+  createChart, 
+  IChartApi, 
+  ISeriesApi, 
+  CandlestickData, 
+  ColorType, 
+  LineStyle, 
+  CrosshairMode 
+} from 'lightweight-charts';
+import { CoinService } from '@/services/coinService';
 
-const CoinChart: React.FC<CoinChartProps> = ({ symbol, data = [] }) => {
+interface CoinChartProps {
+  symbol: string;
+  interval?: '1m' | '3m' | '5m' | '15m' | '30m' | '1h' | '4h' | '1d' | '1w';
+}
+
+const CoinChart: React.FC<CoinChartProps> = ({ 
+  symbol = 'BTCUSDT', 
+  interval = '1d' 
+}) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<CandlestickData> | null>(null);
   const [chartData, setChartData] = useState<CandlestickData[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchChartData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=100`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch chart data');
-      }
-
-      const rawData = await response.json();
-      
-      const formattedData: ChartData[] = rawData.map((candle: any) => ({
-        time: parseInt(candle[0]) / 1000,
-        open: parseFloat(candle[1]),
-        high: parseFloat(candle[2]),
-        low: parseFloat(candle[3]),
-        close: parseFloat(candle[4])
-      }));
-
-      setChartData(formattedData);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      setChartData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [symbol]);
 
   useEffect(() => {
-    if (data.length > 0) {
-      setChartData(data);
-      setLoading(false);
-    } else {
-      fetchChartData();
-    }
-  }, [data, fetchChartData]);
+    const fetchChartData = async () => {
+      try {
+        const data = await CoinService.fetchChartData(symbol, interval);
+        const formattedData = data.map(candle => ({
+          time: candle.time as number,
+          open: candle.open,
+          high: candle.high,
+          low: candle.low,
+          close: candle.close
+        }));
+        setChartData(formattedData);
+      } catch (error) {
+        console.error('차트 데이터 로드 실패:', error);
+      }
+    };
+
+    fetchChartData();
+  }, [symbol, interval]);
 
   useEffect(() => {
     if (chartContainerRef.current && chartData.length > 0) {
+      // 기존 차트 제거
       if (chartRef.current) {
         chartRef.current.remove();
       }
 
+      // 새 차트 생성
       const chart = createChart(chartContainerRef.current, {
         width: chartContainerRef.current.clientWidth,
-        height: 500,
+        height: 600,
         layout: {
-          background: { color: 'white' },
+          background: { type: ColorType.Solid, color: 'white' },
           textColor: 'black',
         },
         grid: {
@@ -69,14 +68,13 @@ const CoinChart: React.FC<CoinChartProps> = ({ symbol, data = [] }) => {
         crosshair: {
           mode: CrosshairMode.Normal,
         },
-        rightPriceScale: {
-          borderVisible: false,
-        },
         timeScale: {
-          borderVisible: false,
+          timeVisible: true,
+          secondsVisible: false,
         },
       });
 
+      // 캔들스틱 시리즈 추가
       const candleSeries = chart.addCandlestickSeries({
         upColor: 'red',
         downColor: 'blue',
@@ -85,22 +83,30 @@ const CoinChart: React.FC<CoinChartProps> = ({ symbol, data = [] }) => {
         wickDownColor: 'blue',
       });
 
+      // 데이터 설정
       candleSeries.setData(chartData);
+
+      // 차트 자동 크기 조정
       chart.timeScale().fitContent();
 
+      // 참조 저장
       chartRef.current = chart;
+      candleSeriesRef.current = candleSeries;
 
+      // 리사이즈 핸들러
       const handleResize = () => {
         if (chartContainerRef.current && chartRef.current) {
-          chartRef.current.resize(
+          chart.resize(
             chartContainerRef.current.clientWidth, 
-            500
+            600
           );
         }
       };
 
+      // 윈도우 리사이즈 이벤트 리스너 추가
       window.addEventListener('resize', handleResize);
 
+      // 클린업 함수
       return () => {
         window.removeEventListener('resize', handleResize);
         if (chartRef.current) {
@@ -110,26 +116,11 @@ const CoinChart: React.FC<CoinChartProps> = ({ symbol, data = [] }) => {
     }
   }, [chartData]);
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center h-[500px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex justify-center items-center h-[500px] text-red-500">
-        {error}
-      </div>
-    );
-  }
-
+  // 데이터 로딩 중 상태
   if (chartData.length === 0) {
     return (
-      <div className="flex justify-center items-center h-[500px] text-gray-500">
-        No chart data available
+      <div className="flex justify-center items-center h-[600px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
@@ -137,8 +128,10 @@ const CoinChart: React.FC<CoinChartProps> = ({ symbol, data = [] }) => {
   return (
     <div 
       ref={chartContainerRef} 
-      className="w-full h-[500px]"
-    />
+      className="w-full h-[600px]"
+    >
+      {/* 차트가 여기에 렌더링됩니다 */}
+    </div>
   );
 };
 
