@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Star, StarOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatNumber } from '@/lib/utils';
-import { createChart, ColorType } from 'lightweight-charts';
+import { createChart, ColorType, LineStyle } from 'lightweight-charts';
 
 interface Coin {
   id: number;
@@ -23,39 +23,184 @@ interface CoinListProps {
   favoritesOnly?: boolean;
 }
 
+// 기술적 지표 계산 함수들
+const calculateSMA = (data: any[], period: number) => {
+  const result = [];
+  
+  for (let i = period - 1; i < data.length; i++) {
+    const sum = data.slice(i - period + 1, i + 1).reduce((total, value) => total + value.close, 0);
+    result.push({
+      time: data[i].time,
+      value: sum / period
+    });
+  }
+  
+  return result;
+};
+
+const calculateRSI = (data: any[], period: number = 14) => {
+  const result = [];
+  const changes = [];
+  
+  // 가격 변화 계산
+  for (let i = 1; i < data.length; i++) {
+    changes.push(data[i].close - data[i-1].close);
+  }
+  
+  // 첫 번째 평균 이득/손실 계산
+  let avgGain = 0;
+  let avgLoss = 0;
+  
+  for (let i = 0; i < period; i++) {
+    if (changes[i] > 0) {
+      avgGain += changes[i];
+    } else {
+      avgLoss += Math.abs(changes[i]);
+    }
+  }
+  
+  avgGain /= period;
+  avgLoss /= period;
+  
+  // 첫 번째 RSI 계산
+  let rs = avgGain / (avgLoss === 0 ? 0.001 : avgLoss); // 0으로 나누기 방지
+  let rsi = 100 - (100 / (1 + rs));
+  
+  result.push({
+    time: data[period].time,
+    value: rsi
+  });
+  
+  // 나머지 기간에 대한 RSI 계산
+  for (let i = period + 1; i < data.length; i++) {
+    const change = changes[i - 1];
+    const gain = change > 0 ? change : 0;
+    const loss = change < 0 ? Math.abs(change) : 0;
+    
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    
+    rs = avgGain / (avgLoss === 0 ? 0.001 : avgLoss);
+    rsi = 100 - (100 / (1 + rs));
+    
+    result.push({
+      time: data[i].time,
+      value: rsi
+    });
+  }
+  
+  return result;
+};
+
+const calculateMACD = (data: any[], shortPeriod: number = 12, longPeriod: number = 26, signalPeriod: number = 9) => {
+  // EMA 계산 함수
+  const calculateEMA = (data: any[], period: number) => {
+    const k = 2 / (period + 1);
+    const result = [{ time: data[0].time, value: data[0].close }];
+    
+    for (let i = 1; i < data.length; i++) {
+      result.push({
+        time: data[i].time,
+        value: data[i].close * k + result[i-1].value * (1 - k)
+      });
+    }
+    
+    return result;
+  };
+  
+  // 단기 및 장기 EMA 계산
+  const shortEMA = calculateEMA(data, shortPeriod);
+  const longEMA = calculateEMA(data, longPeriod);
+  
+  // MACD 선 계산 (단기 EMA - 장기 EMA)
+  const macdLine = [];
+  const signalLineData = [];
+  
+  for (let i = 0; i < data.length; i++) {
+    if (i >= longPeriod - 1) {
+      macdLine.push({
+        time: data[i].time,
+        value: shortEMA[i].value - longEMA[i].value
+      });
+    }
+  }
+  
+  // 시그널 라인 계산 (MACD의 9일 EMA)
+  if (macdLine.length >= signalPeriod) {
+    let signalSum = 0;
+    for (let i = 0; i < signalPeriod; i++) {
+      signalSum += macdLine[i].value;
+    }
+    
+    let signalValue = signalSum / signalPeriod;
+    signalLineData.push({
+      time: macdLine[signalPeriod - 1].time,
+      value: signalValue
+    });
+    
+    const k = 2 / (signalPeriod + 1);
+    for (let i = signalPeriod; i < macdLine.length; i++) {
+      signalValue = macdLine[i].value * k + signalValue * (1 - k);
+      signalLineData.push({
+        time: macdLine[i].time,
+        value: signalValue
+      });
+    }
+  }
+  
+  // 히스토그램 계산 (MACD 선 - 시그널 선)
+  const histogram = [];
+  const minSignalIndex = macdLine.length - signalLineData.length;
+  
+  for (let i = 0; i < signalLineData.length; i++) {
+    histogram.push({
+      time: signalLineData[i].time,
+      value: macdLine[i + minSignalIndex].value - signalLineData[i].value
+    });
+  }
+  
+  return {
+    macdLine: macdLine.slice(signalPeriod - 1),
+    signalLine: signalLineData,
+    histogram: histogram
+  };
+};
+
 export default function CoinList({ initialCoins = [], favoritesOnly = false }: CoinListProps) {
   const [coins, setCoins] = useState<Coin[]>(initialCoins);
   const [loading, setLoading] = useState<boolean>(initialCoins.length === 0);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>('');
   const chartRef = useRef<HTMLDivElement>(null);
-
+  const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
+  
   // 바이낸스 API에서 코인 데이터 가져오기
   const fetchCoins = async () => {
     try {
       setLoading(true);
       console.log('코인 목록을 불러오는 중...');
-      const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr`);
       
-      if (!response.ok) {
-        throw new Error('코인 목록을 불러오는데 실패했습니다.');
-      }
-      
-      const data = await response.json();
-      // 바이낸스 API 데이터 형식에 맞게 변환
-      const processedCoins = data.map((coin: any) => ({
-        id: Math.random(), // 바이낸스 API에 고유 ID가 없어서 랜덤 ID 생성
-        symbol: coin.symbol,
+      // BTCUSDT만 표시하도록 수정
+      const processedCoins = [{
+        id: 1,
+        symbol: 'BTCUSDT',
         market: 'Binance',
-        korean_name: coin.symbol,
-        english_name: coin.symbol,
-        is_favorite: false,
-        current_price: parseFloat(coin.lastPrice),
-        change_rate: parseFloat(coin.priceChangePercent) / 100
-      }));
+        korean_name: '비트코인',
+        english_name: 'Bitcoin',
+        is_favorite: true, // 기본적으로 즐겨찾기 상태로 설정
+        current_price: 0,
+        change_rate: 0
+      }];
 
       setCoins(processedCoins);
       setError(null);
+      
+      // 선택된 코인 설정
+      setSelectedSymbol('BTCUSDT');
+      
+      // 가격 정보 즉시 가져오기
+      fetchPrices(processedCoins);
+      
     } catch (err) {
       setError((err as Error).message);
       console.error('코인 목록 조회 에러:', err);
@@ -64,15 +209,39 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
     }
   };
 
+  // 가격 정보 가져오기
+  const fetchPrices = async (coinList: Coin[] = coins) => {
+    try {
+      const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT`);
+      const priceData = await response.json();
+      
+      setCoins(prevCoins => {
+        return prevCoins.map(coin => {
+          if (coin.symbol === 'BTCUSDT') {
+            return {
+              ...coin,
+              current_price: parseFloat(priceData.lastPrice),
+              change_rate: parseFloat(priceData.priceChangePercent) / 100,
+            };
+          }
+          return coin;
+        });
+      });
+    } catch (err) {
+      console.error('가격 정보 조회 에러:', err);
+    }
+  };
+
   // 코인 차트 렌더링
-  const renderChart = (symbol: string) => {
+  const renderChart = async (symbol: string = 'BTCUSDT') => {
     if (chartRef.current) {
       // 기존 차트 초기화
       chartRef.current.innerHTML = '';
+      setSelectedSymbol(symbol);
 
       const chart = createChart(chartRef.current, {
         width: chartRef.current.clientWidth,
-        height: 300,
+        height: 500, // 차트 높이 증가
         layout: {
           background: { type: ColorType.Solid, color: 'white' },
           textColor: 'black',
@@ -89,38 +258,137 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
         },
         timeScale: {
           borderColor: 'rgba(197, 203, 206, 0.8)',
+          timeVisible: true,
         },
       });
 
-      // 캔들 데이터 가져오기
-      const fetchCandleData = async () => {
-        try {
-          const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=30`);
-          const data = await response.json();
-          
-          const candleSeries = chart.addCandlestickSeries({
-            upColor: 'red',
-            downColor: 'blue',
-            borderVisible: false,
-            wickUpColor: 'red',
-            wickDownColor: 'blue',
-          });
+      // 캔들 데이터 가져오기 (더 많은 데이터 가져오기)
+      try {
+        const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=100`);
+        const data = await response.json();
+        
+        const candleSeries = chart.addCandlestickSeries({
+          upColor: 'red',
+          downColor: 'blue',
+          borderVisible: false,
+          wickUpColor: 'red',
+          wickDownColor: 'blue',
+        });
 
-          const formattedData = data.map((candle: any) => ({
-            time: parseInt(candle[0]) / 1000, // 밀리초를 초로 변환
-            open: parseFloat(candle[1]),
-            high: parseFloat(candle[2]),
-            low: parseFloat(candle[3]),
-            close: parseFloat(candle[4]),
-          }));
+        const formattedData = data.map((candle: any) => ({
+          time: parseInt(candle[0]) / 1000, // 밀리초를 초로 변환
+          open: parseFloat(candle[1]),
+          high: parseFloat(candle[2]),
+          low: parseFloat(candle[3]),
+          close: parseFloat(candle[4]),
+        }));
 
-          candleSeries.setData(formattedData);
-        } catch (error) {
-          console.error('캔들 데이터 가져오기 실패:', error);
-        }
-      };
-
-      fetchCandleData();
+        candleSeries.setData(formattedData);
+        
+        // MA 계산 및 표시 (20일선, 50일선)
+        const sma20Data = calculateSMA(formattedData, 20);
+        const sma50Data = calculateSMA(formattedData, 50);
+        
+        const ma20Series = chart.addLineSeries({
+          color: 'rgba(255, 140, 0, 1)',
+          lineWidth: 2,
+          title: 'MA20',
+        });
+        
+        const ma50Series = chart.addLineSeries({
+          color: 'rgba(30, 144, 255, 1)',
+          lineWidth: 2,
+          title: 'MA50',
+        });
+        
+        ma20Series.setData(sma20Data);
+        ma50Series.setData(sma50Data);
+        
+        // MACD 계산 및 표시
+        const macdResult = calculateMACD(formattedData);
+        
+        // 새로운 창에 MACD 표시
+        const macdPane = chart.addPane(100);
+        
+        const macdLineSeries = macdPane.addLineSeries({
+          color: 'rgba(30, 144, 255, 1)',
+          lineWidth: 2,
+          title: 'MACD Line',
+        });
+        
+        const signalLineSeries = macdPane.addLineSeries({
+          color: 'rgba(255, 70, 70, 1)',
+          lineWidth: 2,
+          title: 'Signal Line',
+        });
+        
+        const histogramSeries = macdPane.addHistogramSeries({
+          color: 'rgba(76, 175, 80, 0.8)',
+          title: 'Histogram',
+        });
+        
+        macdLineSeries.setData(macdResult.macdLine);
+        signalLineSeries.setData(macdResult.signalLine);
+        histogramSeries.setData(macdResult.histogram);
+        
+        // RSI 계산 및 표시
+        const rsiData = calculateRSI(formattedData);
+        
+        // 새로운 창에 RSI 표시
+        const rsiPane = chart.addPane(100);
+        
+        const rsiSeries = rsiPane.addLineSeries({
+          color: 'rgba(125, 75, 199, 1)',
+          lineWidth: 2,
+          title: 'RSI(14)',
+        });
+        
+        // 70과 30 수준선 추가
+        const rsi70Series = rsiPane.addLineSeries({
+          color: 'rgba(255, 0, 0, 0.5)',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          title: '',
+        });
+        
+        const rsi30Series = rsiPane.addLineSeries({
+          color: 'rgba(0, 128, 0, 0.5)',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          title: '',
+        });
+        
+        // 70과 30 수준선 데이터 설정
+        const horizontalLines = rsiData.map(item => ({
+          time: item.time,
+          value: 70,
+        }));
+        
+        const horizontalLines30 = rsiData.map(item => ({
+          time: item.time,
+          value: 30,
+        }));
+        
+        rsiSeries.setData(rsiData);
+        rsi70Series.setData(horizontalLines);
+        rsi30Series.setData(horizontalLines30);
+        
+        // 차트 크기 조정
+        chart.applyOptions({
+          watermark: {
+            visible: true,
+            text: symbol,
+            color: 'rgba(0, 0, 0, 0.2)',
+            fontSize: 40,
+          },
+        });
+        
+        // 표시 영역 조정
+        chart.timeScale().fitContent();
+        
+      } catch (error) {
+        console.error('캔들 데이터 가져오기 실패:', error);
+      }
     }
   };
 
@@ -131,35 +399,28 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
     }
     
     // 가격 정보 주기적 업데이트
-    const fetchPrices = async () => {
-      try {
-        const response = await fetch(`https://api.binance.com/api/v3/ticker/24hr`);
-        const priceData = await response.json();
-        
-        setCoins(prevCoins => {
-          return prevCoins.map(coin => {
-            const updatedCoin = priceData.find((data: any) => data.symbol === coin.symbol);
-            
-            if (updatedCoin) {
-              return {
-                ...coin,
-                current_price: parseFloat(updatedCoin.lastPrice),
-                change_rate: parseFloat(updatedCoin.priceChangePercent) / 100,
-              };
-            }
-            return coin;
-          });
-        });
-      } catch (err) {
-        console.error('가격 정보 조회 에러:', err);
-      }
-    };
-    
-    fetchPrices();
-    const intervalId = setInterval(fetchPrices, 30000); // 30초마다 가격 정보 업데이트
+    const intervalId = setInterval(() => fetchPrices(), 30000); // 30초마다 가격 정보 업데이트
     
     return () => clearInterval(intervalId);
   }, [initialCoins.length]);
+
+  // 차트 렌더링
+  useEffect(() => {
+    // 첫 마운트시 차트 렌더링 (BTCUSDT)
+    if (chartRef.current && selectedSymbol) {
+      renderChart(selectedSymbol);
+    }
+    
+    // 창 크기 변경 시 차트 리사이징
+    const handleResize = () => {
+      if (selectedSymbol) {
+        renderChart(selectedSymbol);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [chartRef.current]);
 
   // 필터링된 코인 목록
   const filteredCoins = coins.filter(
@@ -249,7 +510,7 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
                   <tr key={coin.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button>
-                        <StarOff className="h-5 w-5 text-gray-400" />
+                        <Star className="h-5 w-5 text-yellow-400" />
                       </button>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -284,7 +545,11 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
               </tbody>
             </table>
           </div>
-          <div ref={chartRef} className="w-full h-[300px] mt-4"></div>
+          <div className="mt-6 space-y-2">
+            <h3 className="text-xl font-bold">{selectedSymbol} 차트</h3>
+            <p className="text-sm text-gray-500">MA(20, 50), MACD, RSI 지표가 포함되어 있습니다.</p>
+            <div ref={chartRef} className="w-full h-[700px] border rounded"></div>
+          </div>
         </div>
       )}
     </div>
