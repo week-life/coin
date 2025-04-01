@@ -1,35 +1,28 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { createChart, IChartApi, CandlestickData, LineData, CrosshairMode } from 'lightweight-charts';
-import { CoinData } from '@/types/coin';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { createChart, IChartApi, CandlestickData, CrosshairMode } from 'lightweight-charts';
+import { CoinChartProps, ChartData } from '@/types/coin';
 
-// UTCTimestamp 타입 직접 정의
-type UTCTimestamp = number;
-
-interface CoinChartProps {
-  symbol: string;
-  data?: {
-    time: UTCTimestamp;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-  }[];
-}
-
-export default function CoinChart({ symbol, data = [] }: CoinChartProps) {
+const CoinChart: React.FC<CoinChartProps> = ({ symbol, data = [] }) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const [chartData, setChartData] = useState<CandlestickData[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 데이터 가져오기 함수
-  const fetchChartData = async () => {
+  const fetchChartData = useCallback(async () => {
     try {
+      setLoading(true);
       const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=100`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch chart data');
+      }
+
       const rawData = await response.json();
       
-      const formattedData = rawData.map((candle: any) => ({
+      const formattedData: ChartData[] = rawData.map((candle: any) => ({
         time: parseInt(candle[0]) / 1000,
         open: parseFloat(candle[1]),
         high: parseFloat(candle[2]),
@@ -38,28 +31,30 @@ export default function CoinChart({ symbol, data = [] }: CoinChartProps) {
       }));
 
       setChartData(formattedData);
-    } catch (error) {
-      console.error('Failed to fetch chart data:', error);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      setChartData([]);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [symbol]);
 
   useEffect(() => {
-    // 외부에서 데이터가 전달되지 않았다면 API에서 가져오기
-    if (!data || data.length === 0) {
-      fetchChartData();
-    } else {
+    if (data.length > 0) {
       setChartData(data);
+      setLoading(false);
+    } else {
+      fetchChartData();
     }
-  }, [symbol, data]);
+  }, [data, fetchChartData]);
 
   useEffect(() => {
     if (chartContainerRef.current && chartData.length > 0) {
-      // 기존 차트 제거
       if (chartRef.current) {
         chartRef.current.remove();
       }
 
-      // 새 차트 생성
       const chart = createChart(chartContainerRef.current, {
         width: chartContainerRef.current.clientWidth,
         height: 500,
@@ -82,7 +77,6 @@ export default function CoinChart({ symbol, data = [] }: CoinChartProps) {
         },
       });
 
-      // 캔들스틱 시리즈 추가
       const candleSeries = chart.addCandlestickSeries({
         upColor: 'red',
         downColor: 'blue',
@@ -91,13 +85,11 @@ export default function CoinChart({ symbol, data = [] }: CoinChartProps) {
         wickDownColor: 'blue',
       });
 
-      // 데이터 설정
       candleSeries.setData(chartData);
+      chart.timeScale().fitContent();
 
-      // 차트 참조 저장
       chartRef.current = chart;
 
-      // 리사이즈 핸들러
       const handleResize = () => {
         if (chartContainerRef.current && chartRef.current) {
           chartRef.current.resize(
@@ -107,10 +99,8 @@ export default function CoinChart({ symbol, data = [] }: CoinChartProps) {
         }
       };
 
-      // 윈도우 리사이즈 이벤트 리스너 추가
       window.addEventListener('resize', handleResize);
 
-      // 클린업 함수
       return () => {
         window.removeEventListener('resize', handleResize);
         if (chartRef.current) {
@@ -118,13 +108,28 @@ export default function CoinChart({ symbol, data = [] }: CoinChartProps) {
         }
       };
     }
-  }, [chartData, symbol]);
+  }, [chartData]);
 
-  // 데이터 로딩 중 또는 데이터 없을 때
-  if (chartData.length === 0) {
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-[500px]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-[500px] text-red-500">
+        {error}
+      </div>
+    );
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-[500px] text-gray-500">
+        No chart data available
       </div>
     );
   }
@@ -133,8 +138,8 @@ export default function CoinChart({ symbol, data = [] }: CoinChartProps) {
     <div 
       ref={chartContainerRef} 
       className="w-full h-[500px]"
-    >
-      {/* 차트가 여기에 렌더링됩니다 */}
-    </div>
+    />
   );
-}
+};
+
+export default CoinChart;
