@@ -408,13 +408,9 @@ export default function CoinList({ initialCoins = [], favoritesOnly = false }: C
           title: 'Signal Line',
         });
         
+        // 히스토그램 추가 - v4.1.1에 맞게 간소화
         const histogramSeries = macdChart.addHistogramSeries({
           color: '#26a69a',
-          priceFormat: {
-            type: 'price',
-            precision: 6,
-            minMove: 0.000001,
-          },
         });
         
         macdLineSeries.setData(macdResult.macdLine);
