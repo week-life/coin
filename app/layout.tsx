@@ -1,12 +1,15 @@
+// app/layout.tsx (수정 없음)
+
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Link from "next/link"; // Link import는 유지
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "코인 시세 트래커",
-  description: "빗썸 API를 활용한 코인 시세 분석 및 추적 서비스",
+  title: "Coin Tracker", // 제목은 그대로 유지하거나 변경 가능
+  description: "Track your favorite cryptocurrencies", // 설명 변경 가능
 };
 
 export default function RootLayout({
@@ -15,40 +18,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko">
-      <body className={inter.className}>
-        <div className="min-h-screen bg-gray-50">
-          <header className="bg-blue-600 text-white shadow-md">
-            <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-              <a href="/" className="text-2xl font-bold">코인 트래커</a>
-              <nav>
-                <ul className="flex space-x-4">
-                  <li>
-                    <a href="/" className="hover:underline">홈</a>
-                  </li>
-                  <li>
-                    <a href="/favorites" className="hover:underline">즐겨찾기</a>
-                  </li>
-                  <li>
-                    <a href="/add" className="hover:underline">코인 추가</a>
-                  </li>
-                </ul>
-              </nav>
-            </div>
-          </header>
-          
-          <main className="container mx-auto px-4 py-8">
-            {children}
-          </main>
-          
-          <footer className="bg-gray-200 mt-12">
-            <div className="container mx-auto px-4 py-6">
-              <p className="text-center text-gray-600 text-sm">
-                © {new Date().getFullYear()} 코인 트래커. 빗썸 API를 활용한 비영리 프로젝트입니다.
-              </p>
-            </div>
-          </footer>
-        </div>
+    <html lang="ko"> {/* 한국어 설정 유지 */}
+      <body className={`${inter.className} bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100`}>
+        <header className="bg-white dark:bg-gray-800 shadow-md">
+          <nav className="container mx-auto px-4 py-3 flex justify-between items-center">
+            {/* 홈 링크는 유지 */}
+            <Link href="/" className="text-xl font-bold text-blue-600 dark:text-blue-400">
+              Coin Tracker
+            </Link>
+            {/* 다른 네비게이션 링크가 있다면 여기에 추가/수정 */}
+            {/* 예: <Link href="/about">소개</Link> */}
+          </nav>
+        </header>
+        {children} {/* 페이지 컨텐츠가 렌더링되는 부분 */}
+        <footer className="text-center py-4 mt-8 text-gray-600 dark:text-gray-400 text-sm">
+          © {new Date().getFullYear()} Coin Tracker. All rights reserved.
+        </footer>
       </body>
     </html>
   );
